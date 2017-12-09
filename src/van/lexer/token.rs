@@ -9,8 +9,6 @@ pub enum TokenType {
     Identifier,
     Keyword,
     Whitespace,
-    Indent,
-    Dedent,
     EOF,
 }
 

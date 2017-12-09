@@ -20,7 +20,6 @@ pub fn make_lexer(data: Vec<char>) -> Lexer {
     lexer.matchers_mut().push(Rc::new(key_matcher));
 
     lexer.matchers_mut().push(Rc::new(IdentifierMatcher));
-
     lexer.matchers_mut().push(Rc::new(WhitespaceMatcher));
 
     let symbol_matcher = ConstantCharMatcher::new(TokenType::Symbol, &[
