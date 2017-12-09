@@ -45,7 +45,7 @@ impl Matcher for StringLiteralMatcher {
                 if tokenizer.peek_n(1) == Some(&'"') {
                     raw_marker = true;
                     tokenizer.advance();
-                    
+
                     Some('"')
                 } else {
                     None
@@ -55,7 +55,7 @@ impl Matcher for StringLiteralMatcher {
         };
 
         tokenizer.advance();
-        
+
         let mut string       = String::new();
         let mut found_escape = false;
 
@@ -111,13 +111,22 @@ pub struct IdentifierMatcher;
 
 impl Matcher for IdentifierMatcher {
     fn try_match(&self, tokenizer: &mut Tokenizer) -> Option<Token> {
+        if !tokenizer.peek().unwrap().is_alphabetic() {
+            return None;
+        }
+
         let mut accum = String::new();
-        while let Some(c) = tokenizer.next() {
-            if c.is_alphabetic() {
-                accum.push(c);
+        loop {
+            if let Some(c) = tokenizer.peek() {
+                if c.is_alphanumeric() {
+                    accum.push(*c);
+                } else {
+                    break
+                }
             } else {
                 break
             }
+            tokenizer.advance();
         }
 
         if accum.is_empty() {

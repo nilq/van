@@ -12,7 +12,7 @@ c := r"strong raw string"
 
 ```
 fun fib: n -> i128 =
-  match n of
+  match n
     | 0 -> 0
     | 1 -> 1
     | n -> fib (n - 1) + fib (n - 2)
