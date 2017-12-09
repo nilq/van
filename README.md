@@ -45,3 +45,7 @@ mut pos: Point<f32> =
 
 length_of_point = pos.magnitude!
 ```
+
+```
+fun apply<A, B>: a A, f [A -> B] -> B = f a
+```
