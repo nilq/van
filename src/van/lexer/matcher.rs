@@ -37,20 +37,69 @@ pub struct StringLiteralMatcher;
 
 impl Matcher for StringLiteralMatcher {
     fn try_match(&self, tokenizer: &mut Tokenizer) -> Option<Token> {
-        if tokenizer.peek() == Some(&'"') {
-            tokenizer.advance();
-
-            let mut accum = String::new();
-            while let Some(c) = tokenizer.next() {
-                if c == '"' {
-                    return Some(token!(tokenizer, Str, accum));
+        let mut raw_marker = false;
+        let delimeter  = match *tokenizer.peek().unwrap() {
+            '"'  => Some('"'),
+            '\'' => Some('\''),
+            'r' => {
+                if tokenizer.peek_n(1) == Some(&'"') {
+                    raw_marker = true;
+                    tokenizer.advance();
+                    
+                    Some('"')
                 } else {
-                    accum.push(c);
+                    None
+                }
+            },
+            _ => return None,
+        };
+
+        tokenizer.advance();
+        
+        let mut string       = String::new();
+        let mut found_escape = false;
+
+        while !tokenizer.end() {
+            if raw_marker {
+                if tokenizer.peek().unwrap() == &'"' {
+                    break
+                }
+                string.push(tokenizer.next().unwrap())
+            } else if found_escape {
+                string.push(
+                    match tokenizer.next().unwrap() {
+                        c @ '\\' | c @ '\'' | c @ '"' => c,
+                        'n' => '\n',
+                        'r' => '\r',
+                        't' => '\t',
+                        s => panic!("invalid character escape: {}", s),
+                    }
+                );
+                found_escape = false
+            } else {
+                match *tokenizer.peek().unwrap() {
+                    '\\' => {
+                        tokenizer.next();
+                        found_escape = true
+                    },
+                    c if c == delimeter.unwrap() => break,
+                    _ => string.push(tokenizer.next().unwrap()),
                 }
             }
         }
-
-        None
+        tokenizer.advance();
+        match delimeter.unwrap() {
+            '"'  => {
+                Some(token!(tokenizer, Str, string))
+            },
+            _ => {
+                if string.len() == 1 {
+                    Some(token!(tokenizer, Char, string))
+                } else {
+                    panic!("invalid char literal")
+                }
+            },
+        }
     }
 }
 
@@ -147,6 +196,43 @@ impl Matcher for ConstantStringMatcher {
             if dat.collect::<String>() == *constant {
                 tokenizer.advance_n(constant.len());
                 return Some(token!(tokenizer, self.token_type.clone(), constant.to_string()))
+            }
+        }
+        None
+    }
+}
+
+pub struct KeyMatcher {
+    token_type: TokenType,
+    constants: Vec<String>,
+}
+
+impl KeyMatcher {
+    pub fn new(token_type: TokenType, constants: Vec<String>) -> Self {
+        KeyMatcher {
+            token_type,
+            constants,
+        }
+    }
+}
+
+impl Matcher for KeyMatcher {
+    fn try_match(&self, tokenizer: &mut Tokenizer) -> Option<Token> {
+        for constant in self.constants.clone() {
+            let dat = tokenizer.clone().take(constant.len());
+            if dat.size_hint().1.unwrap() != constant.len() {
+                return None
+            } else {
+                if dat.collect::<String>() == constant {
+                    if let Some(c) = tokenizer.peek_n(constant.len()) {
+                        if "_?".contains(*c) || c.is_alphanumeric() {
+                            return None
+                        }
+                    }
+
+                    tokenizer.advance_n(constant.len());
+                    return Some(token!(tokenizer, self.token_type.clone(), constant))
+                }
             }
         }
         None

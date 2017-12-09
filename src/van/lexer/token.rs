@@ -5,6 +5,7 @@ pub enum TokenType {
     Char,
     Bool,
     Symbol,
+    Operator,
     Identifier,
     Keyword,
     Whitespace,
@@ -41,7 +42,7 @@ impl Default for TokenPosition {
 pub struct Token {
     pub token_type: TokenType,
     pub pos: TokenPosition,
-    content: String,
+    pub content: String,
 }
 
 impl Token {
