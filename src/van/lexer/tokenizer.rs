@@ -106,6 +106,23 @@ impl Tokenizer {
             }
         }
     }
+
+    pub fn collect_if(&mut self, func: fn(&char) -> bool) -> String {
+        let mut accum = String::new();
+        loop {
+            if let Some(c) = self.peek() {
+                if func(c) {
+                    accum.push(*c);
+                } else {
+                    break
+                }
+            } else {
+                break
+            }
+            self.advance();
+        }
+        accum
+    }
 }
 
 impl Iterator for Tokenizer {

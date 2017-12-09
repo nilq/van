@@ -16,24 +16,12 @@ pub struct IntLiteralMatcher;
 
 impl Matcher for IntLiteralMatcher {
     fn try_match(&self, tokenizer: &mut Tokenizer) -> Option<Token> {
-        let mut accum = String::new();
-        loop {
-            if let Some(c) = tokenizer.peek() {
-                if c.is_digit(10) {
-                    accum.push(*c);
-                } else {
-                    break
-                }
-            } else {
-                break
-            }
-            tokenizer.advance();
-        }
+        let string = tokenizer.collect_if(|c| c.is_digit(10));
 
-        if accum.is_empty() {
+        if string.is_empty() {
             None
         } else {
-            Some(token!(tokenizer, Int, accum))
+            Some(token!(tokenizer, Int, string))
         }
     }
 }
@@ -120,24 +108,12 @@ impl Matcher for IdentifierMatcher {
             return None;
         }
 
-        let mut accum = String::new();
-        loop {
-            if let Some(c) = tokenizer.peek() {
-                if c.is_alphanumeric() {
-                    accum.push(*c);
-                } else {
-                    break
-                }
-            } else {
-                break
-            }
-            tokenizer.advance();
-        }
+        let string = tokenizer.collect_if(|c| c.is_alphanumeric());
 
-        if accum.is_empty() {
+        if string.is_empty() {
             None
         } else {
-            Some(token!(tokenizer, Identifier, accum))
+            Some(token!(tokenizer, Identifier, string))
         }
     }
 }
@@ -146,21 +122,10 @@ pub struct WhitespaceMatcher;
 
 impl Matcher for WhitespaceMatcher {
     fn try_match(&self, tokenizer: &mut Tokenizer) -> Option<Token> {
-        let mut accum = String::new();
-        loop {
-            if let Some(c) = tokenizer.peek() {
-                if c.is_whitespace() {
-                    accum.push(*c);
-                } else {
-                    break
-                }
-            } else {
-                break
-            }
-            tokenizer.advance();
-        }
-        if accum.len() > 0 {
-            Some(token!(tokenizer, Whitespace, accum))
+        let string = tokenizer.collect_if(|c| c.is_whitespace());
+
+        if string.len() > 0 {
+            Some(token!(tokenizer, Whitespace, string))
         } else {
             None
         }
