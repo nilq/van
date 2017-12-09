@@ -19,7 +19,7 @@ impl Matcher for IntLiteralMatcher {
         let mut accum = String::new();
         while let Some(c) = tokenizer.next() {
             if c.is_digit(10) {
-                accum.push(c.clone());
+                accum.push(c);
             } else {
                 break
             }
@@ -145,7 +145,7 @@ impl Matcher for WhitespaceMatcher {
         loop {
             if let Some(c) = tokenizer.peek() {
                 if c.is_whitespace() {
-                    accum.push(c.clone());
+                    accum.push(*c);
                 } else {
                     break
                 }
@@ -239,17 +239,15 @@ impl Matcher for KeyMatcher {
             let dat = tokenizer.clone().take(constant.len());
             if dat.size_hint().1.unwrap() != constant.len() {
                 return None
-            } else {
-                if dat.collect::<String>() == constant {
-                    if let Some(c) = tokenizer.peek_n(constant.len()) {
-                        if "_?".contains(*c) || c.is_alphanumeric() {
-                            return None
-                        }
+            } else if dat.collect::<String>() == constant {
+                if let Some(c) = tokenizer.peek_n(constant.len()) {
+                    if "_?".contains(*c) || c.is_alphanumeric() {
+                        return None
                     }
-
-                    tokenizer.advance_n(constant.len());
-                    return Some(token!(tokenizer, self.token_type.clone(), constant))
                 }
+
+                tokenizer.advance_n(constant.len());
+                return Some(token!(tokenizer, self.token_type.clone(), constant))
             }
         }
         None
