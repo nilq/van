@@ -38,18 +38,18 @@ impl Default for TokenPosition {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub token_type: TokenType,
-    pub pos: TokenPosition,
+    pub position: TokenPosition,
     pub content: String,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, pos: TokenPosition, content: String) -> Token {
+    pub fn new(token_type: TokenType, position: TokenPosition, content: String) -> Token {
         Token {
             token_type,
-            pos,
+            position,
             content,
         }
     }
