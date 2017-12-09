@@ -17,12 +17,17 @@ pub struct IntLiteralMatcher;
 impl Matcher for IntLiteralMatcher {
     fn try_match(&self, tokenizer: &mut Tokenizer) -> Option<Token> {
         let mut accum = String::new();
-        while let Some(c) = tokenizer.next() {
-            if c.is_digit(10) {
-                accum.push(c);
+        loop {
+            if let Some(c) = tokenizer.peek() {
+                if c.is_digit(10) {
+                    accum.push(*c);
+                } else {
+                    break
+                }
             } else {
                 break
             }
+            tokenizer.advance();
         }
 
         if accum.is_empty() {
