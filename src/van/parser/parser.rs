@@ -22,7 +22,7 @@ impl Parser {
 
         stack
     }
-    
+
     fn skip_whitespace(&mut self) {
         loop {
             match self.traveler.current().token_type {
@@ -34,6 +34,12 @@ impl Parser {
                 break
             }
         }
+    }
+
+    fn get_type(&mut self) -> Type {
+        let a = Type::Identifier(Rc::new(self.traveler.current_content()));
+        self.traveler.next();
+        a
     }
     
     fn expression(&mut self) -> Expression {
@@ -102,12 +108,98 @@ impl Parser {
                 })
             }
 
-            _ => panic!(),
+            _ => panic!("{:#?}: {}", self.traveler.current().token_type, self.traveler.current_content()),
+        }
+    }
+    
+    fn assignment(&mut self, left: Rc<Expression>) -> Statement {
+        self.traveler.next();
+
+        let right = Rc::new(self.expression());
+
+        Statement::Assignment(
+            Assignment {
+                left,
+                right,
+                position: self.traveler.current().position,
+            }
+        )
+    }
+    
+    fn definition(&mut self, left: Rc<Expression>) -> Definition {
+        self.traveler.expect_content(":");
+        self.traveler.next();
+
+        self.skip_whitespace();
+
+        let t;
+
+        if self.traveler.current_content() == "=" {
+            self.traveler.next();
+            t = None
+        } else {
+            t = Some(self.get_type());
+            self.skip_whitespace();
+        }
+
+        if self.traveler.current_content() == "=" {
+            self.traveler.next();
+
+            let right = Some(Rc::new(self.expression()));
+
+            Definition {
+                t, left, right, position: self.traveler.current().position
+            }
+
+        } else {
+            Definition {
+                t, left, right: None, position: self.traveler.current().position
+            }
         }
     }
     
     fn statement(&mut self) -> Statement {
+        self.skip_whitespace();
+
         match self.traveler.current().token_type {
+            TokenType::Identifier => {
+                let a = Expression::Identifier(Rc::new(self.traveler.current_content().clone()), self.traveler.current().position);
+                self.traveler.next();
+                
+                self.skip_whitespace();
+
+                if self.traveler.current_content() == "=" {
+                    self.assignment(Rc::new(a))
+                } else if self.traveler.current_content() == ":" {
+                    Statement::Definition(self.definition(Rc::new(a)))
+                } else {
+                    self.traveler.prev();
+                    Statement::Expression(Rc::new(self.expression()))
+                }
+            },
+            
+            TokenType::Keyword => match self.traveler.current_content().as_str() {
+                "mut" => {
+                    self.traveler.next();
+                    
+                    self.skip_whitespace();
+
+                    let a = Expression::Identifier(Rc::new(self.traveler.current_content().clone()), self.traveler.current().position);
+                    self.traveler.next();
+                    
+                    self.skip_whitespace();
+
+                    let mut def = self.definition(Rc::new(a));
+
+                    if def.t.is_some() {
+                        def.t = Some(Type::Mut(Some(Rc::new(def.t.unwrap()))));
+                    }
+                    
+                    Statement::Definition(def)
+                }
+                _ => Statement::Expression(Rc::new(self.expression())),
+            },
+            
             _ => Statement::Expression(Rc::new(self.expression())),
         }
     }

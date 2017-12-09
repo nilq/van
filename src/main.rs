@@ -3,7 +3,8 @@ use van::*;
 
 fn main() {
     let source = r#"
--10^^2
+mut a: i32 = -100
+a = 10
     "#;
     
     let lexer      = make_lexer(source.chars().collect());

@@ -60,7 +60,16 @@ pub struct Arm {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Expression(Rc<Expression>),
+    Definition(Definition),
     Assignment(Assignment),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Definition {
+    pub t:     Option<Type>,
+    pub left:  Rc<Expression>,
+    pub right: Option<Rc<Expression>>,
+    pub position: TokenPosition,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -105,4 +114,11 @@ impl Operand {
             _     => None,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    Mut(Option<Rc<Type>>),
+    Array(Rc<Type>, Option<Expression>),
+    Identifier(Rc<String>),
 }
