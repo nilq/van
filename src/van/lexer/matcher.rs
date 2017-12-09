@@ -141,13 +141,21 @@ pub struct WhitespaceMatcher;
 
 impl Matcher for WhitespaceMatcher {
     fn try_match(&self, tokenizer: &mut Tokenizer) -> Option<Token> {
-        let mut found = false;
-        while !tokenizer.end() && tokenizer.peek().unwrap().is_whitespace() {
-            found = true;
-            tokenizer.next();
+        let mut accum = String::new();
+        loop {
+            if let Some(c) = tokenizer.peek() {
+                if c.is_whitespace() {
+                    accum.push(c.clone());
+                } else {
+                    break
+                }
+            } else {
+                break
+            }
+            tokenizer.advance();
         }
-        if found {
-            Some(token!(tokenizer, Whitespace, String::new()))
+        if accum.len() > 0 {
+            Some(token!(tokenizer, Whitespace, accum))
         } else {
             None
         }

@@ -12,7 +12,7 @@ pub fn make_lexer(data: Vec<char>) -> Lexer {
 
     let bool_matcher = ConstantStringMatcher::new(TokenType::Bool, &["true", "false"]);
     lexer.matchers_mut().push(Rc::new(bool_matcher));
-    
+
     let key_matcher = ConstantStringMatcher::new(TokenType::Keyword, &[
         "mut", "fun", "function", "struct", "impl", "for", "match",
     ]);
@@ -28,7 +28,7 @@ pub fn make_lexer(data: Vec<char>) -> Lexer {
     ]);
 
     lexer.matchers_mut().push(Rc::new(symbol_matcher));
-    
+
     let operator_matcher = ConstantStringMatcher::new(TokenType::Operator, &[
         "+", "-", "*", "/", "^^", "^", ">=", "<=", "==", "!=", ".", "<|", "|>", "<", ">",
     ]);
@@ -80,12 +80,6 @@ impl Iterator for Lexer {
         };
         match token.token_type {
             TokenType::EOF => None,
-            TokenType::Whitespace => {
-                match self.next() {
-                    Some(t) => Some(t),
-                    None => None,
-                }
-            }
             _ => Some(token),
         }
     }
