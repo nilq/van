@@ -26,7 +26,8 @@ impl Parser {
     fn skip_whitespace(&mut self) {
         loop {
             match self.traveler.current().token_type {
-                TokenType::Whitespace => { self.traveler.next(); }
+                TokenType::Whitespace |
+                TokenType::EOL => { self.traveler.next(); }
                 _ => break,
             }
 
@@ -42,6 +43,95 @@ impl Parser {
         a
     }
     
+    fn match_arm(self: &mut Self) -> Option<MatchArm> {
+        self.skip_whitespace();
+        println!("here: {:?}", self.traveler.current_content());
+
+        if self.traveler.current_content() == "|" {
+            self.traveler.next();
+            self.skip_whitespace();
+            
+
+            let param = Rc::new(self.expression());
+            
+            self.skip_whitespace();
+
+
+            if self.traveler.current_content() == "->" {
+                self.traveler.next();
+            }
+            
+            self.skip_whitespace();
+
+            let body  = Rc::new(self.expression());
+            
+            Some(MatchArm {
+                param,
+                body,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn match_pattern(&mut self) -> MatchPattern {
+        self.traveler.next();
+
+        let matching = Rc::new(self.expression());
+
+        if self.traveler.current_content() == "\n" {
+            let arms = self.block_of(&Self::match_arm);
+
+            MatchPattern {
+                matching,
+                arms,
+            }
+
+        } else {
+            panic!("pattern: {:?} : {:#?}", self.traveler.current().token_type, self.traveler.current_content())
+        }
+    }
+
+    fn block_of<B>(&mut self, match_with: &Fn(&mut Self) -> Option<B>) -> Vec<B> {
+        let mut stack  = Vec::new();
+        let mut indent = 0;
+        let mut acc    = 0;
+        
+        self.skip_whitespace();
+        
+        while self.traveler.get(self.traveler.top + acc).token_type == TokenType::Indent {
+            acc    += 1;
+            indent += 1
+        }
+
+        acc = 0;
+
+        loop { // iter pr line
+            let mut line_indent = 0;
+            
+            self.skip_whitespace();
+            
+            println!("{:?}", self.traveler.current_content());
+            
+            while self.traveler.get(self.traveler.top + acc).token_type == TokenType::Indent {
+                acc         += 1;
+                line_indent += 1;
+                self.traveler.next();
+            }
+            
+            println!("{:?} < {}", line_indent, indent);
+            
+            if line_indent < indent {
+                break
+            } else {
+                println!("skip {:?}", self.traveler.current_content());
+                self.traveler.next();
+            }
+        }
+
+        stack
+    }
+
     fn expression(&mut self) -> Expression {
         let expr = self.atom();
 
@@ -101,11 +191,21 @@ impl Parser {
                 
                 self.traveler.next();
                 
-                Expression::Unary(Unary {
+                Expression::UnaryOp(UnaryOp {
                     op,
                     expr: Rc::new(self.expression()),
                     position: self.traveler.current().position,
                 })
+            },
+            
+            TokenType::Keyword => match self.traveler.current_content().as_str() {
+                "match" => {
+                    self.traveler.next();
+                    
+                    Expression::MatchPattern(self.match_pattern())
+                },
+                
+                _ => panic!("bad keyword"),
             }
 
             _ => panic!("{:#?}: {}", self.traveler.current().token_type, self.traveler.current_content()),
@@ -165,7 +265,7 @@ impl Parser {
             TokenType::Identifier => {
                 let a = Expression::Identifier(Rc::new(self.traveler.current_content().clone()), self.traveler.current().position);
                 self.traveler.next();
-                
+
                 self.skip_whitespace();
 
                 if self.traveler.current_content() == "=" {
@@ -177,7 +277,7 @@ impl Parser {
                     Statement::Expression(Rc::new(self.expression()))
                 }
             },
-            
+
             TokenType::Keyword => match self.traveler.current_content().as_str() {
                 "mut" => {
                     self.traveler.next();
@@ -236,8 +336,8 @@ impl Parser {
                     let right = ex_stack.pop().unwrap();
 
                     ex_stack.push(
-                        Expression::Operation(
-                            Operation {
+                        Expression::BinaryOp(
+                            BinaryOp {
                                 right: Rc::new(left),
                                 op:    op_stack.pop().unwrap().0,
                                 left:  Rc::new(right),
@@ -264,8 +364,8 @@ impl Parser {
             let right = ex_stack.pop().unwrap();
 
             ex_stack.push(
-                Expression::Operation(
-                    Operation {
+                Expression::BinaryOp(
+                    BinaryOp {
                         right: Rc::new(left),
                         op:    op_stack.pop().unwrap().0,
                         left:  Rc::new(right),

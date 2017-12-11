@@ -3,12 +3,18 @@ use van::*;
 
 fn main() {
     let source = r#"
-mut a: i32 = -100
-a = 10
+match a
+  | 1 -> match a
+    | 2 -> 3
     "#;
-    
+
     let lexer      = make_lexer(source.chars().collect());
-    let traveler   = Traveler::new(lexer.collect());
+
+    let lexed      = lexer.collect();
+    
+    println!("{:#?}", lexed);
+
+    let traveler   = Traveler::new(lexed);
     let mut parser = Parser::new(traveler);
     
     println!("{:#?}", parser.parse());

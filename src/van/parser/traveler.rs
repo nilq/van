@@ -3,7 +3,7 @@ use super::{Token, TokenType};
 #[derive(Debug, Clone)]
 pub struct Traveler {
     pub tokens: Vec<Token>,
-    top: usize,
+    pub top: usize,
 }
 
 #[allow(dead_code)]

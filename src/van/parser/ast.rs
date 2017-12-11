@@ -10,13 +10,15 @@ pub enum Expression {
     Str(Rc<String>),
     Char(char),
     Identifier(Rc<String>, TokenPosition),
-    Operation(Operation),
-    Unary(Unary),
+    BinaryOp(BinaryOp),
+    UnaryOp(UnaryOp),
+    MatchPattern(MatchPattern),
+    MatchArm(MatchArm),
     EOF,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Operation {
+pub struct BinaryOp {
     pub left:     Rc<Expression>,
     pub op:       Operand,
     pub right:    Rc<Expression>,
@@ -24,10 +26,22 @@ pub struct Operation {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Unary {
+pub struct UnaryOp {
     pub op:       Operand,
     pub expr:     Rc<Expression>,
     pub position: TokenPosition,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchPattern {
+    pub matching: Rc<Expression>,
+    pub arms:     Vec<MatchArm>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm {
+    pub param: Rc<Expression>,
+    pub body:  Rc<Expression>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

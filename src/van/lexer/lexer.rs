@@ -16,14 +16,22 @@ pub fn make_lexer(data: Vec<char>) -> Lexer {
     let key_matcher = ConstantStringMatcher::new(TokenType::Keyword, &[
         "mut", "fun", "function", "struct", "impl", "for", "match",
     ]);
-
     lexer.matchers_mut().push(Rc::new(key_matcher));
 
     lexer.matchers_mut().push(Rc::new(IdentifierMatcher));
+    
+    let indent_matcher = ConstantStringMatcher::new(TokenType::Indent, &[
+        "  ", "\t",
+    ]);
+    lexer.matchers_mut().push(Rc::new(indent_matcher));
+    
+    let eol_matcher = ConstantCharMatcher::new(TokenType::EOL, &['\n']);
+    lexer.matchers_mut().push(Rc::new(eol_matcher));
+    
     lexer.matchers_mut().push(Rc::new(WhitespaceMatcher));
 
-    let symbol_matcher = ConstantCharMatcher::new(TokenType::Symbol, &[
-        '(', ')', '[', ']', '{', '}', ',', ':', ';', '!', '|', '=',
+    let symbol_matcher = ConstantStringMatcher::new(TokenType::Symbol, &[
+        "(", ")", "[", "]", "{", "}", ",", ":", ";", "!", "|", "=", "->"
     ]);
 
     lexer.matchers_mut().push(Rc::new(symbol_matcher));
