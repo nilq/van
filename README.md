@@ -64,7 +64,7 @@ impl<T> Vector<T> for Point<T> {
   }
 }
 
-mut pos: Point<f32> = new Point<f32> {
+mut pos := new Point<f32> {
   x: 100
   y: 100
 }
