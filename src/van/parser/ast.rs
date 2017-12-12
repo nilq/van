@@ -45,12 +45,6 @@ pub struct MatchArm {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct FunctionMatch {
-    pub name: String,
-    pub arms: Vec<MatchArm>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct Call {
     pub callee:   Rc<Expression>,
     pub args:     Vec<Rc<Expression>>,
@@ -61,12 +55,6 @@ pub struct Call {
 pub struct Index {
     pub id:    Rc<Expression>,
     pub index: Rc<Expression>,
-    pub position: TokenPosition,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Function {
-    pub arms:     Rc<Expression>,
     pub position: TokenPosition,
 }
 
@@ -83,12 +71,28 @@ pub enum Statement {
     Definition(Definition),
     Assignment(Assignment),
     FunctionMatch(FunctionMatch),
+    Function(Function),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionMatch {
+    pub t:    Option<Type>,
+    pub name: String,
+    pub arms: Vec<MatchArm>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    pub t:      Type,
+    pub name:   String,
+    pub params: Vec<Definition>,
+    pub body:   Vec<Expression>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition {
     pub t:     Option<Type>,
-    pub left:  Rc<Expression>,
+    pub name:  String,
     pub right: Option<Rc<Expression>>,
     pub position: TokenPosition,
 }

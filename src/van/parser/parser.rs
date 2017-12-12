@@ -110,11 +110,15 @@ impl Parser {
             } else if self.traveler.current_content() == "{" {
                 nested += 1
             }
+            
+            if nested == 0 {
+                break
+            }
 
             stack.push(self.traveler.current().clone());
-            self.traveler.next();            
+            self.traveler.next();
         }
-        
+
         self.traveler.next();
         
         let mut parser  = Parser::new(Traveler::new(stack));
@@ -223,7 +227,7 @@ impl Parser {
         )
     }
     
-    fn definition(&mut self, left: Rc<Expression>) -> Definition {
+    fn definition(&mut self, name: String) -> Definition {
         self.traveler.expect_content(":");
         self.traveler.next();
 
@@ -245,12 +249,12 @@ impl Parser {
             let right = Some(Rc::new(self.expression()));
 
             Definition {
-                t, left, right, position: self.traveler.current().position
+                t, name, right, position: self.traveler.current().position
             }
 
         } else {
             Definition {
-                t, left, right: None, position: self.traveler.current().position
+                t, name, right: None, position: self.traveler.current().position
             }
         }
     }
@@ -264,11 +268,63 @@ impl Parser {
         self.traveler.next();
         self.skip_whitespace();
 
+        let mut t = None;
+
+        if self.traveler.current_content() == "->" {
+            self.traveler.next();
+            self.skip_whitespace();
+            
+            t = Some(self.get_type());
+            self.skip_whitespace();
+        }
+
         let arms = self.block_of(&Self::match_arm);
 
         FunctionMatch {
+            t,
             name,
             arms,
+        }
+    }
+
+    fn expression_(self: &mut Self) -> Option<Expression> {
+        match self.expression() {
+            Expression::EOF => None,
+            c               => Some(c),
+        }
+    }
+
+    fn function(&mut self) -> Function {
+        self.traveler.next();
+        self.skip_whitespace();
+
+        let name = self.traveler.current_content().clone();
+        self.traveler.next();
+        self.skip_whitespace();
+
+        let mut params = Vec::new();
+
+        while self.traveler.current_content() != "->" {
+            let a = self.traveler.current_content().clone();
+            self.traveler.next();
+            self.skip_whitespace();
+
+            params.push(self.definition(a))
+        }
+
+        self.traveler.next();
+        self.skip_whitespace();
+        
+        let t = self.get_type();
+        self.skip_whitespace();
+        
+        let body = self.block_of(&Self::expression_);
+        
+        Function {
+            t,
+            name,
+            params,
+            body,
         }
     }
     
@@ -277,15 +333,17 @@ impl Parser {
 
         match self.traveler.current().token_type {
             TokenType::Identifier => {
-                let a = Expression::Identifier(self.traveler.current_content().clone(), self.traveler.current().position);
+                let a = self.traveler.current_content().clone();
                 self.traveler.next();
 
                 self.skip_whitespace();
+                
+                let position = self.traveler.current().position;
 
                 if self.traveler.current_content() == "=" {
-                    self.assignment(Rc::new(a))
+                    self.assignment(Rc::new(Expression::Identifier(a, position)))
                 } else if self.traveler.current_content() == ":" {
-                    Statement::Definition(self.definition(Rc::new(a)))
+                    Statement::Definition(self.definition(a))
                 } else {
                     self.traveler.prev();
                     Statement::Expression(Rc::new(self.expression()))
@@ -295,15 +353,15 @@ impl Parser {
             TokenType::Keyword => match self.traveler.current_content().as_str() {
                 "mut" => {
                     self.traveler.next();
-                    
+
                     self.skip_whitespace();
 
-                    let a = Expression::Identifier(self.traveler.current_content().clone(), self.traveler.current().position);
+                    let a = self.traveler.current_content().clone();
                     self.traveler.next();
                     
                     self.skip_whitespace();
 
-                    let mut def = self.definition(Rc::new(a));
+                    let mut def = self.definition(a);
 
                     if def.t.is_some() {
                         def.t = Some(Type::Mut(Some(Rc::new(def.t.unwrap()))));
@@ -313,6 +371,7 @@ impl Parser {
                 }
                 
                 "function" => Statement::FunctionMatch(self.function_match()),
+                "fun"      => Statement::Function(self.function()),
                 
                 _ => Statement::Expression(Rc::new(self.expression())),
             },

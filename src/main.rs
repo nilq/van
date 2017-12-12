@@ -3,12 +3,18 @@ use van::*;
 
 fn main() {
     let source = r#"
-function fib {
-    | 0 -> 0
-    | 1 -> match 1 {
-        | 1 -> 2
+fun fib a: i32 -> i32 {
+    match a {
+        | 0 -> 0
+        | 1 -> 1
     }
-}"#;
+}
+
+function fib -> i32 {
+    | 0 -> 0
+    | 1 -> 1
+}
+"#;
 
     let lexer      = make_lexer(source.chars().collect());
 
