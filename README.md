@@ -4,9 +4,23 @@ an attempt to make a tiny high-control language with sugar syntax
 
 ## TODO
 
-- parse more AST nodes
+- parse blocks
+
+- parse types properly
+
+- parse calls - Haskell style
+
+- parse structs
+
+- parse interfaces
+
+- parse flow control
 
 - errors
+
+- semantics
+
+- transpiler and compiler
 
 ## syntax
 
@@ -50,7 +64,7 @@ impl<T> Vector<T> for Point<T> {
   }
 }
 
-mut pos: Point<f32> {
+mut pos := new Point<f32> {
   x: 100
   y: 100
 }
