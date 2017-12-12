@@ -7,9 +7,9 @@ pub enum Expression {
     Block(Vec<Statement>),
     Number(f64),
     Bool(bool),
-    Str(Rc<String>),
+    Str(String),
     Char(char),
-    Identifier(Rc<String>, TokenPosition),
+    Identifier(String, TokenPosition),
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
     MatchPattern(MatchPattern),
@@ -45,6 +45,12 @@ pub struct MatchArm {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct FunctionMatch {
+    pub name: String,
+    pub arms: Vec<MatchArm>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Call {
     pub callee:   Rc<Expression>,
     pub args:     Vec<Rc<Expression>>,
@@ -76,6 +82,7 @@ pub enum Statement {
     Expression(Rc<Expression>),
     Definition(Definition),
     Assignment(Assignment),
+    FunctionMatch(FunctionMatch),
 }
 
 #[derive(Debug, Clone, PartialEq)]

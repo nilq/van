@@ -46,9 +46,6 @@ impl Parser {
     fn match_arm(self: &mut Self) -> Option<MatchArm> {
         self.skip_whitespace();
         
-        println!("stcuikc", );
-        
-
         if self.traveler.current_content() == "|" {
             self.traveler.next();
             self.skip_whitespace();
@@ -106,8 +103,8 @@ impl Parser {
 
         let mut stack  = Vec::new();
         let mut nested = 1;
-        
-        while nested > 0 {
+
+        while nested != 0 {      
             if self.traveler.current_content() == "}" {
                 nested -= 1
             } else if self.traveler.current_content() == "{" {
@@ -115,7 +112,7 @@ impl Parser {
             }
 
             stack.push(self.traveler.current().clone());
-            self.traveler.next();
+            self.traveler.next();            
         }
         
         self.traveler.next();
@@ -147,14 +144,14 @@ impl Parser {
 
         expr
     }
-    
+
     fn atom(&mut self) -> Expression {
         self.skip_whitespace();
 
         if self.traveler.remaining() == 1 {
             return Expression::EOF
         }
-        
+
         match self.traveler.current().token_type {
             TokenType::Int => {
                 let a = Expression::Number(self.traveler.current_content().parse::<f64>().unwrap());
@@ -169,7 +166,7 @@ impl Parser {
             }
 
             TokenType::Str => {
-                let a = Expression::Str(Rc::new(self.traveler.current_content().clone()));
+                let a = Expression::Str(self.traveler.current_content().clone());
                 self.traveler.next();
                 a
             }
@@ -181,7 +178,7 @@ impl Parser {
             }
 
             TokenType::Identifier => {
-                let a = Expression::Identifier(Rc::new(self.traveler.current_content().clone()), self.traveler.current().position);
+                let a = Expression::Identifier(self.traveler.current_content().clone(), self.traveler.current().position);
                 self.traveler.next();
                 a
             },
@@ -204,8 +201,8 @@ impl Parser {
                     
                     Expression::MatchPattern(self.match_pattern())
                 },
-                
-                _ => panic!("bad keyword"),
+
+                _ => panic!("bad keyword: {}", self.traveler.current_content()),
             }
 
             _ => panic!("{:#?}: {}", self.traveler.current().token_type, self.traveler.current_content()),
@@ -258,12 +255,29 @@ impl Parser {
         }
     }
     
+    fn function_match(&mut self) -> FunctionMatch {
+        self.traveler.next();
+        self.skip_whitespace();
+
+        let name = self.traveler.current_content().clone();
+        
+        self.traveler.next();
+        self.skip_whitespace();
+
+        let arms = self.block_of(&Self::match_arm);
+
+        FunctionMatch {
+            name,
+            arms,
+        }
+    }
+    
     fn statement(&mut self) -> Statement {
         self.skip_whitespace();
 
         match self.traveler.current().token_type {
             TokenType::Identifier => {
-                let a = Expression::Identifier(Rc::new(self.traveler.current_content().clone()), self.traveler.current().position);
+                let a = Expression::Identifier(self.traveler.current_content().clone(), self.traveler.current().position);
                 self.traveler.next();
 
                 self.skip_whitespace();
@@ -284,7 +298,7 @@ impl Parser {
                     
                     self.skip_whitespace();
 
-                    let a = Expression::Identifier(Rc::new(self.traveler.current_content().clone()), self.traveler.current().position);
+                    let a = Expression::Identifier(self.traveler.current_content().clone(), self.traveler.current().position);
                     self.traveler.next();
                     
                     self.skip_whitespace();
@@ -297,6 +311,9 @@ impl Parser {
                     
                     Statement::Definition(def)
                 }
+                
+                "function" => Statement::FunctionMatch(self.function_match()),
+                
                 _ => Statement::Expression(Rc::new(self.expression())),
             },
             
