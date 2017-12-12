@@ -303,23 +303,37 @@ impl Parser {
         self.skip_whitespace();
 
         let mut params = Vec::new();
+        
+        let mut t = None;
+        
+        loop {
+            match self.traveler.current_content().as_str() {
+                "->" => {
+                    self.traveler.next();
+                    self.skip_whitespace();
 
-        while self.traveler.current_content() != "->" {
-            let a = self.traveler.current_content().clone();
-            self.traveler.next();
-            self.skip_whitespace();
+                    t = Some(self.get_type());
+                    self.skip_whitespace();
 
-            params.push(self.definition(a))
+                    break
+                },
+
+                "{" => break,
+
+                _ => {
+                    let a = self.traveler.current_content().clone();
+                    self.traveler.next();
+                    self.skip_whitespace();
+
+                    params.push(self.definition(a))
+                },
+            }
         }
 
-        self.traveler.next();
-        self.skip_whitespace();
-        
-        let t = self.get_type();
-        self.skip_whitespace();
-        
+        println!("{:?}", self.traveler.current_content());
+
         let body = self.block_of(&Self::expression_);
-        
+
         Function {
             t,
             name,

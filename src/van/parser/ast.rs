@@ -4,7 +4,6 @@ use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
-    Block(Vec<Statement>),
     Number(f64),
     Bool(bool),
     Str(String),
@@ -13,7 +12,6 @@ pub enum Expression {
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
     MatchPattern(MatchPattern),
-    MatchArm(MatchArm),
     EOF,
 }
 
@@ -83,7 +81,7 @@ pub struct FunctionMatch {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
-    pub t:      Type,
+    pub t:      Option<Type>,
     pub name:   String,
     pub params: Vec<Definition>,
     pub body:   Vec<Expression>,

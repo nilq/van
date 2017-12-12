@@ -4,17 +4,13 @@ an attempt to make a tiny high-control language with sugar syntax
 
 ## TODO
 
-- parse blocks
-
-- parse types properly
-
 - parse calls - Haskell style
 
 - parse structs
 
 - parse interfaces
 
-- parse flow control
+- parse flow control (if, for, ternary)
 
 - errors
 

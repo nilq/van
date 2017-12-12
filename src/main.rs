@@ -3,16 +3,11 @@ use van::*;
 
 fn main() {
     let source = r#"
-fun fib a: i32 -> i32 {
+fun fib a: i32 {
     match a {
         | 0 -> 0
         | 1 -> 1
     }
-}
-
-function fib -> i32 {
-    | 0 -> 0
-    | 1 -> 1
 }
 "#;
 
