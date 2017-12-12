@@ -100,7 +100,7 @@ pub enum Operand {
     Add, Sub,
     Equal, NEqual,
     Lt, Gt, LtEqual, GtEqual,
-    Concat, Combine,
+    Concat,
     PipeLeft, PipeRight,
     XOR,
 }
@@ -121,7 +121,6 @@ impl Operand {
             "<="  => Some((Operand::LtEqual, 4)),
             ">="  => Some((Operand::GtEqual, 4)),
             "^"   => Some((Operand::XOR, 4)),
-            "."   => Some((Operand::Combine, 5)),
             "++"  => Some((Operand::Concat, 5)),
             "<|"  => Some((Operand::PipeLeft, 5)),
             "|>"  => Some((Operand::PipeRight, 5)),

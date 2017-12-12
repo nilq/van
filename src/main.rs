@@ -3,9 +3,12 @@ use van::*;
 
 fn main() {
     let source = r#"
-match a
-  | 1 -> match a
-    | 2 -> 3
+match a {
+    | 0 -> ^^a
+    | 1 -> match 1 {
+        | 0 -> a + 1
+    }
+}
     "#;
 
     let lexer      = make_lexer(source.chars().collect());
