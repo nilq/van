@@ -12,6 +12,7 @@ pub enum Expression {
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
     MatchPattern(MatchPattern),
+    Call(Call),
     EOF,
 }
 
@@ -46,7 +47,6 @@ pub struct MatchArm {
 pub struct Call {
     pub callee:   Rc<Expression>,
     pub args:     Vec<Rc<Expression>>,
-    pub position: TokenPosition,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -84,7 +84,7 @@ pub struct Function {
     pub t:      Option<Type>,
     pub name:   String,
     pub params: Vec<Definition>,
-    pub body:   Vec<Expression>,
+    pub body:   Vec<Statement>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

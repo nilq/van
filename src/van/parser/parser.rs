@@ -4,12 +4,14 @@ use super::*;
 
 pub struct Parser {
     traveler: Traveler,
+    inside:   String,
 }
 
 impl Parser {
     pub fn new(traveler: Traveler) -> Parser {
         Parser {
             traveler,
+            inside: String::new(),
         }
     }
 
@@ -32,6 +34,20 @@ impl Parser {
             }
 
             if self.traveler.remaining() < 2 {
+                break
+            }
+        }
+    }
+    
+    fn back_whitespace(&mut self) {
+        loop {
+            match self.traveler.current().token_type {
+                TokenType::Whitespace |
+                TokenType::EOL => { self.traveler.prev(); },
+                _ => break,
+            }
+
+            if self.traveler.top < 2 {
                 break
             }
         }
@@ -80,11 +96,11 @@ impl Parser {
         self.skip_whitespace();
 
         let matching = Rc::new(self.expression());
-        
+
         self.skip_whitespace();
 
         if self.traveler.current_content() == "{" {
-            let arms = self.block_of(&Self::match_arm);
+            let arms = self.block_of(&Self::match_arm, ("{", "}"));
 
             MatchPattern {
                 matching,
@@ -96,8 +112,11 @@ impl Parser {
         }
     }
 
-    fn block_of<B>(&mut self, match_with: &Fn(&mut Self) -> Option<B>) -> Vec<B> {
-        if self.traveler.current_content() == "{" {
+    fn block_of<B>(&mut self, match_with: &Fn(&mut Self) -> Option<B>, delimeters: (&str, &str)) -> Vec<B> {
+        let backup_inside = self.inside.clone();
+        self.inside       = delimeters.0.to_owned();
+        
+        if self.traveler.current_content() == delimeters.0 {
             self.traveler.next();
         }
 
@@ -105,9 +124,9 @@ impl Parser {
         let mut nested = 1;
 
         while nested != 0 {      
-            if self.traveler.current_content() == "}" {
+            if self.traveler.current_content() == delimeters.1 {
                 nested -= 1
-            } else if self.traveler.current_content() == "{" {
+            } else if self.traveler.current_content() == delimeters.0 {
                 nested += 1
             }
             
@@ -120,13 +139,17 @@ impl Parser {
         }
 
         self.traveler.next();
-        
+
         let mut parser  = Parser::new(Traveler::new(stack));
+        parser.inside   = self.inside.clone();
+
         let mut stack_b = Vec::new();
         
         while let Some(n) = match_with(&mut parser) {
             stack_b.push(n)
         }
+
+        self.inside = backup_inside;
 
         stack_b
     }
@@ -149,7 +172,21 @@ impl Parser {
         expr
     }
 
-    fn atom(&mut self) -> Expression {
+    fn call(self: &mut Self, callee: Rc<Expression>) -> Call {
+        let mut args = Vec::new();
+
+        while self.traveler.remaining() > 1 {
+            args.push(Rc::new(self.expression()));
+            self.skip_whitespace()
+        }
+
+        Call {
+            callee,
+            args,
+        }
+    }
+
+    fn atom(&mut self) -> Expression {        
         self.skip_whitespace();
 
         if self.traveler.remaining() == 1 {
@@ -184,7 +221,56 @@ impl Parser {
             TokenType::Identifier => {
                 let a = Expression::Identifier(self.traveler.current_content().clone(), self.traveler.current().position);
                 self.traveler.next();
-                a
+                self.skip_whitespace();
+
+                if self.traveler.current().token_type == TokenType::Whitespace {
+                    self.traveler.next();
+                }
+
+                match self.traveler.current().token_type {
+                    TokenType::Int        |
+                    TokenType::Identifier |
+                    TokenType::Bool       |
+                    TokenType::Str        |
+                    TokenType::Char       |
+                    TokenType::Symbol     => {
+                        self.skip_whitespace();
+
+                        if self.traveler.current().token_type == TokenType::Symbol {
+                            if self.traveler.current_content() != "(" {
+                                return a
+                            }
+                        }
+
+                        let mut stack = Vec::new();
+
+                        let mut nested = 0;
+
+                        if self.inside == "(" {
+                            nested = 1
+                        }
+
+                        while self.traveler.current().token_type != TokenType::Operator || nested != 0 {
+                            if self.traveler.current_content() == "\n" || self.traveler.remaining() < 2 {
+                                break
+                            }
+
+                            if self.traveler.current_content() == "(" {
+                                nested += 1
+                            } else if self.traveler.current_content() == ")" {
+                                nested -= 1
+                            }
+
+                            stack.push(self.traveler.current().clone());
+                            self.traveler.next();
+                        }
+
+                        let mut parser = Parser::new(Traveler::new(stack));
+
+                        Expression::Call(Self::call(&mut parser, Rc::new(a)))
+                    }
+                    _ => a
+                }
             },
 
             TokenType::Operator => {
@@ -208,6 +294,11 @@ impl Parser {
 
                 _ => panic!("bad keyword: {}", self.traveler.current_content()),
             }
+
+            TokenType::Symbol => match self.traveler.current_content().as_str() {
+                "(" => self.block_of(&Self::expression_, ("(", ")")).get(0).unwrap().clone(),
+                _   => panic!("symbol: {}", self.traveler.current_content()),
+            },
 
             _ => panic!("{:#?}: {}", self.traveler.current().token_type, self.traveler.current_content()),
         }
@@ -258,7 +349,7 @@ impl Parser {
             }
         }
     }
-    
+
     fn function_match(&mut self) -> FunctionMatch {
         self.traveler.next();
         self.skip_whitespace();
@@ -278,7 +369,7 @@ impl Parser {
             self.skip_whitespace();
         }
 
-        let arms = self.block_of(&Self::match_arm);
+        let arms = self.block_of(&Self::match_arm, ("{", "}"));
 
         FunctionMatch {
             t,
@@ -294,6 +385,16 @@ impl Parser {
         }
     }
 
+    fn statement_(self: &mut Self) -> Option<Statement> {
+        match self.statement() {
+            Statement::Expression(e) => match *e {
+                Expression::EOF => None,
+                ref e           => Some(Statement::Expression(Rc::new(e.clone()))),
+            },
+            c                          => Some(c),
+        }
+    }
+
     fn function(&mut self) -> Function {
         self.traveler.next();
         self.skip_whitespace();
@@ -303,9 +404,9 @@ impl Parser {
         self.skip_whitespace();
 
         let mut params = Vec::new();
-        
+
         let mut t = None;
-        
+
         loop {
             match self.traveler.current_content().as_str() {
                 "->" => {
@@ -330,9 +431,7 @@ impl Parser {
             }
         }
 
-        println!("{:?}", self.traveler.current_content());
-
-        let body = self.block_of(&Self::expression_);
+        let body = self.block_of(&Self::statement_, ("{", "}"));
 
         Function {
             t,
@@ -359,7 +458,9 @@ impl Parser {
                 } else if self.traveler.current_content() == ":" {
                     Statement::Definition(self.definition(a))
                 } else {
+                    self.back_whitespace();
                     self.traveler.prev();
+
                     Statement::Expression(Rc::new(self.expression()))
                 }
             },
