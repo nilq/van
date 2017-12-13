@@ -4,8 +4,6 @@ an attempt to make a tiny high-control language with sugar syntax
 
 ## TODO
 
-- parse calls - Haskell style
-
 - parse structs
 
 - parse interfaces

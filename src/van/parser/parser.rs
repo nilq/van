@@ -317,8 +317,10 @@ impl Parser {
             }
         )
     }
-    
+
     fn definition(&mut self, name: String) -> Definition {
+        self.skip_whitespace();
+        
         self.traveler.expect_content(":");
         self.traveler.next();
 
@@ -391,7 +393,7 @@ impl Parser {
                 Expression::EOF => None,
                 ref e           => Some(Statement::Expression(Rc::new(e.clone()))),
             },
-            c                          => Some(c),
+            c => Some(c),
         }
     }
 
@@ -441,6 +443,54 @@ impl Parser {
         }
     }
     
+    fn type_definition(self: &mut Self) -> TypeDefinition {
+        self.skip_whitespace();
+        let name = self.traveler.current_content().to_owned();
+        self.traveler.next();
+        
+        self.skip_whitespace();
+        
+        self.traveler.expect_content(":");
+        self.traveler.next();
+        
+        self.skip_whitespace();
+        
+        let t = self.get_type();
+        
+        TypeDefinition {
+            name,
+            t,
+        }
+    }
+    
+    fn type_definition_(self: &mut Self) -> Option<TypeDefinition> {
+        if self.traveler.remaining() > 2 {
+            Some(self.type_definition())
+        } else {
+            None
+        }
+    }
+
+    fn structure(&mut self) -> Struct {
+        self.traveler.next();
+        self.skip_whitespace();
+        
+        let name = self.traveler.current_content().clone();
+        self.traveler.next();
+        self.skip_whitespace();
+
+        if self.traveler.current_content() == "{" {
+            let body = self.block_of(&Self::type_definition_, ("{", "}"));
+            
+            Struct {
+                name,
+                body,
+            }
+        } else {
+            panic!()
+        }
+    }
+    
     fn statement(&mut self) -> Statement {
         self.skip_whitespace();
 
@@ -487,6 +537,7 @@ impl Parser {
                 
                 "function" => Statement::FunctionMatch(self.function_match()),
                 "fun"      => Statement::Function(self.function()),
+                "struct"   => Statement::Struct(self.structure()),
                 
                 _ => Statement::Expression(Rc::new(self.expression())),
             },

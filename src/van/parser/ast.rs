@@ -57,6 +57,12 @@ pub struct Index {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct TypeDefinition {
+    pub name: String,
+    pub t: Type,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Arm {
     pub params:   Vec<Rc<Expression>>,
     pub body:     Rc<Statement>,
@@ -70,6 +76,7 @@ pub enum Statement {
     Assignment(Assignment),
     FunctionMatch(FunctionMatch),
     Function(Function),
+    Struct(Struct),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -93,6 +100,12 @@ pub struct Definition {
     pub name:  String,
     pub right: Option<Rc<Expression>>,
     pub position: TokenPosition,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Struct {
+    pub name: String,
+    pub body: Vec<TypeDefinition>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
