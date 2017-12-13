@@ -5,19 +5,17 @@ use van::*;
 
 fn main() {
     let source = r#"
-struct Point {
-    x: i32 y: i32
+  for {
+    print "yo"
 }
     "#;
 
-    let lexer      = make_lexer(source.chars().collect());
-
-    let lexed      = lexer.collect();
-
-    println!("{:#?}", lexed);
-
-    let traveler   = Traveler::new(lexed);
+    let lexer      = make_lexer(source.clone().chars().collect());
+    let traveler   = Traveler::new(lexer.collect());
     let mut parser = Parser::new(traveler);
-    
-    println!("{:#?}", parser.parse());
+
+    match parser.parse() {
+        Ok(ast) => println!("{:#?}", ast),
+        Err(e)  => e.display(&source.lines().collect())
+    }
 }
