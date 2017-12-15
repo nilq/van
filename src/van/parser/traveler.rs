@@ -1,4 +1,4 @@
-use super::{Token, TokenType};
+use super::*;
 
 #[derive(Debug, Clone)]
 pub struct Traveler {
@@ -51,19 +51,19 @@ impl Traveler {
         self.current().content.clone()
     }
 
-    pub fn expect(&self, token: TokenType) -> String {
+    pub fn expect(&self, token: TokenType) -> Result<String, Response> {
         if self.current().token_type == token {
-            self.current_content()
+            Ok(self.current_content())
         } else {
-            panic!()
+            Err(Response::error(Some(ErrorLocation::new(self.current().position, self.current_content().len())), format!("expected {:?} but found: {:?}", token, self.current_content())))
         }
     }
 
-    pub fn expect_content(&self, content: &str) -> String {
+    pub fn expect_content(&self, content: &str) -> Result<String, Response> {
         if self.current_content() == content {
-            self.current_content()
+            Ok(self.current_content())
         } else {
-            panic!()
+            Err(Response::error(Some(ErrorLocation::new(self.current().position, self.current_content().len())), format!("expected {:?} but found: {:?}", content, self.current_content())))
         }
     }
 }

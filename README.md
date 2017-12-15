@@ -4,8 +4,6 @@ an attempt to make a tiny high-control language with sugar syntax
 
 ## TODO
 
-- parse structs
-
 - parse interfaces
 
 - parse flow control (if, for, ternary)
@@ -22,6 +20,10 @@ an attempt to make a tiny high-control language with sugar syntax
 a: i32      = 10
 mut b: char = '\n'
 c := r"strong raw string"
+
+mut d := [
+  1, 3, 4, 5
+]
 ```
 
 ```

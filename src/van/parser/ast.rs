@@ -13,6 +13,7 @@ pub enum Expression {
     UnaryOp(UnaryOp),
     MatchPattern(MatchPattern),
     Call(Call),
+    Array(Vec<Expression>),
     EOF,
 }
 
@@ -155,5 +156,5 @@ impl Operand {
 pub enum Type {
     Mut(Option<Rc<Type>>),
     Array(Rc<Type>, Option<Expression>),
-    Identifier(Rc<String>),
+    Identifier(String),
 }

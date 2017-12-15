@@ -49,10 +49,11 @@ impl Response {
                     let line = lines.get(pos.0.line);
 
                     if let Some(line) = line {
-                        let source_line = format!("{:5}| {}\n", pos.0.line, line);
+                        let prefix      = format!("{:5} |", pos.0.line + 1).blue().bold();
+                        let source_line = format!("{} {}\n", prefix, line);
                         let indicator   = format!(
                             "{:offset$}{:^<count$}", " ", " ".color(color).bold(),
-                            offset = pos.1 + 1 + pos.0.col,
+                            offset = prefix.len() + pos.0.col - 1,
                             count  = pos.1 + 1,
                         );
 
