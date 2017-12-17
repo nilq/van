@@ -550,7 +550,7 @@ impl Parser {
     }
 
     fn type_definition(self: &mut Self) -> Result<TypeDefinition, Response> {
-        self.skip_whitespace();
+        self.skip_whitespace_eol();
         let name = self.traveler.current_content().to_owned();
         self.traveler.next();
 
@@ -686,7 +686,38 @@ impl Parser {
                 elses: None,
             })
         }
+    }
+
+    fn function_type_def_(self: &mut Self) -> Result<Option<TypeDefinition>, Response> {
+        if self.traveler.remaining() > 2 {
+            let d = self.type_definition()?;
+            
+            match d.t {
+                Type::Fun(..) => (),
+                ref c         => return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, 5)), format!("invalid function definition: {:?}", c)))
+            }
+            
+            Ok(Some(d))
+        } else {
+            Ok(None)
+        }
+    }
+    
+    fn interface(&mut self) -> Result<Interface, Response> {
+        self.traveler.next();
+        self.skip_whitespace();
         
+        let name = self.traveler.expect(TokenType::Identifier)?;
+        self.traveler.next();
+        
+        self.skip_whitespace();
+        
+        let types = self.block_of(&Self::function_type_def_, ("{", "}"))?;
+        
+        Ok(Interface {
+            name,
+            types,
+        })
     }
 
     fn statement(&mut self) -> Result<Statement, Response> {
@@ -730,8 +761,8 @@ impl Parser {
 
                     let a = self.traveler.current_content().clone();
                     self.traveler.next();
-                    
-                    self.skip_whitespace_eol();
+
+                    self.skip_whitespace();
 
                     let mut def = self.definition(a)?;
 
@@ -742,12 +773,13 @@ impl Parser {
                     Ok(Statement::Definition(def))
                 }
                 
-                "function" => Ok(Statement::FunctionMatch(self.function_match()?)),
-                "fun"      => Ok(Statement::Function(self.function()?)),
-                "struct"   => Ok(Statement::Struct(self.structure()?)),
-                "if"       => Ok(Statement::If(self.if_pattern()?)),
-                "unless"   => Ok(Statement::Unless(Unless { base: self.if_pattern()? } )),
-                "match"    => Ok(Statement::MatchPattern(self.match_pattern()?)),
+                "function"  => Ok(Statement::FunctionMatch(self.function_match()?)),
+                "fun"       => Ok(Statement::Function(self.function()?)),
+                "struct"    => Ok(Statement::Struct(self.structure()?)),
+                "if"        => Ok(Statement::If(self.if_pattern()?)),
+                "unless"    => Ok(Statement::Unless(Unless { base: self.if_pattern()? } )),
+                "match"     => Ok(Statement::MatchPattern(self.match_pattern()?)),
+                "interface" => Ok(Statement::Interface(self.interface()?)),
 
                 _ => Ok(Statement::Expression(Rc::new(self.expression()?))),
             },

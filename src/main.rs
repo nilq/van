@@ -3,27 +3,16 @@ extern crate colored;
 mod van;
 use van::*;
 
-/* source.van
-
+fn main() {
+    let source = r#"
 interface Debug {
     format: fun self -> string
 }
 
 struct Point {
-    x: f64
-    y: f64
+    x: float
+    y: float
 }
-
-implement Point as Debug {
-    fun format self -> string {
-        "(" ++ self.x ++ ", " ++ self.y ++ ")"
-    }
-}
-*/
-
-fn main() {
-    let source = r#"
-b: fun i32, mut uint -> i32
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

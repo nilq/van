@@ -82,6 +82,7 @@ pub enum Statement {
     If(If),
     Unless(Unless),
     MatchPattern(MatchPattern),
+    Interface(Interface),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,6 +119,12 @@ pub struct If {
     pub condition: Expression,
     pub body:      Vec<Statement>,
     pub elses:     Option<Vec<(Option<Expression>, Vec<Statement>)>>, // vec<(condition, body)?>
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Interface {
+    pub name:  String,
+    pub types: Vec<TypeDefinition>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
