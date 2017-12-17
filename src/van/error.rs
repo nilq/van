@@ -52,7 +52,7 @@ impl Response {
                         let source_line = format!("{} {}\n", prefix, line);
                         let indicator   = format!(
                             "{:offset$}{:^<count$}", " ", " ".color(color).bold(),
-                            offset = prefix.len() + pos.0.col - 2,
+                            offset = prefix.len() + pos.0.col - 1,
                             count  = pos.1 + 1,
                         );
                         

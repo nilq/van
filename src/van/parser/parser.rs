@@ -340,6 +340,13 @@ impl Parser {
                 "if"     => Ok(Expression::If(Rc::new(self.if_pattern()?))),
                 "unless" => Ok(Expression::Unless(Rc::new(Unless { base: self.if_pattern()? } ))),
                 
+                "struct" => {
+                    self.traveler.next();
+                    self.skip_whitespace();
+
+                    Ok(Expression::Struct(self.block_of(&Self::type_definition_, ("{", "}"))?))
+                },
+
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad keyword: {:?}", c))),
             }
 
@@ -503,7 +510,7 @@ impl Parser {
         }
     }
 
-    fn function(&mut self) -> Result<Function, Response> {
+    fn function(&mut self) -> Result<Fun, Response> {
         self.traveler.next();
         self.skip_whitespace_eol();
 
@@ -541,7 +548,7 @@ impl Parser {
 
         let body = self.block_of(&Self::statement_, ("{", "}"))?;
 
-        Ok(Function {
+        Ok(Fun {
             t,
             name,
             params,
@@ -595,6 +602,43 @@ impl Parser {
         } else {
             panic!()
         }
+    }
+
+    fn function_(self: &mut Self) -> Result<Option<Function>, Response> {
+        self.skip_whitespace_eol();
+        match self.traveler.current_content().as_str() {
+            "fun"      => Ok(Some(Function::Fun(self.function()?))),
+            "function" => Ok(Some(Function::Match(self.function_match()?))),
+            _          => Ok(None),
+        }
+    }
+    
+    fn implementation(&mut self) -> Result<Implementation, Response> {
+        self.traveler.next();
+        self.skip_whitespace();
+        
+        let structure = self.traveler.expect(TokenType::Identifier)?;
+        self.traveler.next();
+        
+        self.skip_whitespace();
+        
+        self.traveler.expect_content("as")?;
+        self.traveler.next();
+        
+        self.skip_whitespace();
+        
+        let interface = self.traveler.expect(TokenType::Identifier)?;
+        self.traveler.next();
+        
+        self.skip_whitespace();
+        
+        let body = self.block_of(&Self::function_, ("{", "}"))?;
+        
+        Ok(Implementation {
+            structure,
+            interface,
+            body,
+        })
     }
     
     fn if_pattern(&mut self) -> Result<If, Response> {
@@ -696,7 +740,7 @@ impl Parser {
                 Type::Fun(..) => (),
                 ref c         => return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, 5)), format!("invalid function definition: {:?}", c)))
             }
-            
+
             Ok(Some(d))
         } else {
             Ok(None)
@@ -706,7 +750,7 @@ impl Parser {
     fn interface(&mut self) -> Result<Interface, Response> {
         self.traveler.next();
         self.skip_whitespace();
-        
+
         let name = self.traveler.expect(TokenType::Identifier)?;
         self.traveler.next();
         
@@ -745,7 +789,7 @@ impl Parser {
                     Statement::Expression(Rc::new(self.expression()?))
                 };
 
-                if self.traveler.remaining() > 1 {
+                if self.traveler.remaining() > 1 {                    
                     self.traveler.expect_content("\n")?;
                     self.traveler.next();
                 }
@@ -772,21 +816,22 @@ impl Parser {
                     
                     Ok(Statement::Definition(def))
                 }
-                
+
                 "function"  => Ok(Statement::FunctionMatch(self.function_match()?)),
-                "fun"       => Ok(Statement::Function(self.function()?)),
+                "fun"       => Ok(Statement::Fun(self.function()?)),
                 "struct"    => Ok(Statement::Struct(self.structure()?)),
                 "if"        => Ok(Statement::If(self.if_pattern()?)),
                 "unless"    => Ok(Statement::Unless(Unless { base: self.if_pattern()? } )),
                 "match"     => Ok(Statement::MatchPattern(self.match_pattern()?)),
                 "interface" => Ok(Statement::Interface(self.interface()?)),
+                "implement" => Ok(Statement::Implementation(self.implementation()?)),
 
                 _ => Ok(Statement::Expression(Rc::new(self.expression()?))),
             },
 
             TokenType::EOL => {
                 if self.traveler.remaining() > 1 {
-                    self.traveler.next();
+                    self.traveler.next();                    
                     self.statement()
                 } else {
                     Ok(Statement::Expression(Rc::new(Expression::EOF)))

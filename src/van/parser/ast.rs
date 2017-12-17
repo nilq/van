@@ -15,6 +15,7 @@ pub enum Expression {
     Array(Vec<Expression>),
     If(Rc<If>),
     Unless(Rc<Unless>),
+    Struct(Vec<TypeDefinition>),
     EOF,
 }
 
@@ -77,12 +78,19 @@ pub enum Statement {
     Definition(Definition),
     Assignment(Assignment),
     FunctionMatch(FunctionMatch),
-    Function(Function),
+    Fun(Fun),
     Struct(Struct),
     If(If),
     Unless(Unless),
     MatchPattern(MatchPattern),
     Interface(Interface),
+    Implementation(Implementation),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Function {
+    Fun(Fun),
+    Match(FunctionMatch)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -93,7 +101,7 @@ pub struct FunctionMatch {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Function {
+pub struct Fun {
     pub t:      Option<Type>,
     pub name:   String,
     pub params: Vec<Definition>,
@@ -130,6 +138,13 @@ pub struct Interface {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unless {
     pub base: If,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Implementation {
+    pub structure: String,
+    pub interface: String,
+    pub body:      Vec<Function>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

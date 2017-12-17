@@ -6,12 +6,24 @@ use van::*;
 fn main() {
     let source = r#"
 interface Debug {
-    format: fun self -> string
+    debug: fun -> string
+    grr:   fun uint -> uint
 }
-
+    
 struct Point {
     x: float
     y: float
+}
+
+implement Point as Debug {
+    fun debug -> string {
+        "no bugs"
+    }
+    
+    fun grr a: uint -> uint {
+        b := a + 10
+        b
+    }
 }
     "#;
 
