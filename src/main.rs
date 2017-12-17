@@ -9,7 +9,7 @@ interface Debug {
     debug: fun -> string
     grr:   fun uint -> uint
 }
-    
+
 struct Point {
     x: float
     y: float
@@ -25,6 +25,8 @@ implement Point as Debug {
         b
     }
 }
+
+a: [uint; 3 + 2] = [1, 2, 3,]
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

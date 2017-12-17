@@ -115,6 +115,34 @@ impl Parser {
             },
             
             "fun" => self.get_fun_type(),
+            
+            "["   => {
+                self.traveler.next();
+                self.skip_whitespace_eol();
+                
+                let t = Rc::new(self.get_type()?);
+                
+                self.skip_whitespace_eol();
+                
+                if self.traveler.current_content() == ";" {
+                    self.traveler.next();
+                    self.skip_whitespace_eol();
+
+                    let amount = self.expression()?;
+
+                    self.skip_whitespace_eol();
+                    self.traveler.expect_content("]")?;
+                    self.traveler.next();
+
+                    Ok(Type::Array(t, Some(amount)))
+                    
+                } else {
+                    self.traveler.expect_content("]")?;
+                    self.traveler.next();
+                
+                    Ok(Type::Array(t, None))
+                }
+            }
 
             _ => {
                 let a = Type::Identifier(self.traveler.expect(TokenType::Identifier)?);
