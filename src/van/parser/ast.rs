@@ -10,10 +10,10 @@ pub enum Expression {
     Char(char),
     Identifier(String, TokenPosition),
     BinaryOp(BinaryOp),
-    UnaryOp(UnaryOp),
     MatchPattern(MatchPattern),
     Call(Call),
     Array(Vec<Expression>),
+    If(Rc<If>),
     EOF,
 }
 
@@ -78,6 +78,8 @@ pub enum Statement {
     FunctionMatch(FunctionMatch),
     Function(Function),
     Struct(Struct),
+    If(If),
+    MatchPattern(MatchPattern),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -107,6 +109,13 @@ pub struct Definition {
 pub struct Struct {
     pub name: String,
     pub body: Vec<TypeDefinition>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct If {
+    pub condition: Expression,
+    pub body:      Vec<Statement>,
+    pub elses:     Option<Vec<(Option<Expression>, Vec<Statement>)>>, // vec<(condition, body)?>
 }
 
 #[derive(Debug, Clone, PartialEq)]

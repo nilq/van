@@ -285,12 +285,9 @@ impl Parser {
             },
 
             TokenType::Keyword => match self.traveler.current_content().as_str() {
-                "match" => {
-                    self.traveler.next();
-
-                    Ok(Expression::MatchPattern(self.match_pattern()?))
-                },
-
+                "match" => Ok(Expression::MatchPattern(self.match_pattern()?)),
+                "if"    => Ok(Expression::If(Rc::new(self.if_pattern()?))),
+                
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad keyword: {:?}", c))),
             }
 
@@ -322,7 +319,7 @@ impl Parser {
             } else if self.traveler.current_content() == "[" {
                 nested += 1
             }
-            
+
             if nested == 0 {
                 break
             }
@@ -547,6 +544,98 @@ impl Parser {
             panic!()
         }
     }
+    
+    fn if_pattern(&mut self) -> Result<If, Response> {
+        self.traveler.next();
+
+        self.skip_whitespace_eol();
+
+        let condition = self.expression()?;
+
+        self.skip_whitespace_eol();
+
+        self.traveler.expect_content("{")?;
+
+        let body = self.block_of(&Self::statement_, ("{", "}"))?;
+
+        self.skip_whitespace_eol();
+
+        if self.traveler.current_content() == "elif" || self.traveler.current_content() == "else" {
+            let mut elses = Vec::new();
+            
+            let mut else_flag = false;
+
+            loop {
+                let current = self.traveler.current_content();
+
+                if else_flag && (current == "elif" || current == "else") {
+
+                    return Err(
+                        Response::group(
+                            vec![
+                            Response::error(Some(ErrorLocation::new(self.traveler.current().position, current.len())), format!(r#"irrelevant "{}" following previous "else""#, current)),
+                            Response::note(None, r#"all cases are already covered at this point"#.to_owned()),
+                            ]
+                        )
+                    )
+                }
+
+                match current.as_str() {
+                    "elif" => {
+
+                        self.traveler.next();
+                        self.skip_whitespace_eol();
+                    
+                        let condition = self.expression()?;
+                        
+                        self.skip_whitespace_eol();
+                        
+                        self.traveler.expect_content("{")?;
+
+                        let body = self.block_of(&Self::statement_, ("{", "}"))?;
+
+                        elses.push((Some(condition), body));
+
+                        self.skip_whitespace_eol();
+                    },
+
+                    "else" => {
+                        else_flag = true;
+                        
+                        self.traveler.next();
+                        self.skip_whitespace_eol();
+                        
+                        self.traveler.expect_content("{")?;
+
+                        let body = self.block_of(&Self::statement_, ("{", "}"))?;
+                        
+                        elses.push((None, body));
+                        
+                        self.skip_whitespace_eol();
+                    },
+
+                    _ => {
+                        self.traveler.prev();
+                        break
+                    }
+                }
+            }
+
+            Ok(If {
+                condition,
+                body,
+                elses: Some(elses),
+            })
+            
+        } else {
+            Ok(If {
+                condition,
+                body,
+                elses: None,
+            })
+        }
+        
+    }
 
     fn statement(&mut self) -> Result<Statement, Response> {
         self.skip_whitespace();
@@ -573,7 +662,6 @@ impl Parser {
                     Statement::Expression(Rc::new(self.expression()?))
                 };
 
-
                 if self.traveler.remaining() > 1 {
                     self.traveler.expect_content("\n")?;
                     self.traveler.next();
@@ -598,14 +686,16 @@ impl Parser {
                     if def.t.is_some() {
                         def.t = Some(Type::Mut(Some(Rc::new(def.t.unwrap()))));
                     }
-
+                    
                     Ok(Statement::Definition(def))
                 }
                 
                 "function" => Ok(Statement::FunctionMatch(self.function_match()?)),
                 "fun"      => Ok(Statement::Function(self.function()?)),
                 "struct"   => Ok(Statement::Struct(self.structure()?)),
-                
+                "if"       => Ok(Statement::If(self.if_pattern()?)),
+                "match"    => Ok(Statement::MatchPattern(self.match_pattern()?)),
+
                 _ => Ok(Statement::Expression(Rc::new(self.expression()?))),
             },
 

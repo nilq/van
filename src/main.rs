@@ -5,9 +5,19 @@ use van::*;
 
 fn main() {
     let source = r#"
-    mut d := [1, 1, 2,]
+a: string = if a == b {
+    "b minus zero"
+} elif true {
+    "elif"
+} else {
+    "else"
+}
 
-"#;
+match a {
+    | "b minus zero" -> 1
+    | "else"         -> 2
+}
+    "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());
     let traveler   = Traveler::new(lexer.collect());

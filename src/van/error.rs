@@ -12,7 +12,6 @@ impl ErrorLocation {
 pub enum Response {
     Error(Option<ErrorLocation>,      String),
     Note(Option<ErrorLocation>,       String),
-
     Group(Vec<Response>),
 }
 
@@ -43,8 +42,8 @@ impl Response {
                     _                        => unreachable!(),
                 };
 
-                let message = format!("{}: {}\n", message_t.color(color).bold(), message.bold());
-                
+                let message = format!("{}{}{}\n", message_t.color(color).bold(), ": ".white().bold(), message.bold());
+
                 if let &Some(ref pos) = location {
                     let line = lines.get(pos.0.line);
 
@@ -52,12 +51,12 @@ impl Response {
                         let prefix      = format!("{:5} |", pos.0.line + 1).blue().bold();
                         let source_line = format!("{} {}\n", prefix, line);
                         let indicator   = format!(
-                            "{:offset$}{:^<count$}", " ", " ".color(color).bold(),
-                            offset = prefix.len() + pos.0.col - 1,
+                            "{:offset$}{}{:^<count$}", " ", "|".blue().bold(), " ".color(color).bold(),
+                            offset = prefix.len() + pos.0.col - 2,
                             count  = pos.1 + 1,
                         );
-
-                        println!("{}{}{}", message, source_line, indicator)
+                        
+                        println!("{}{}{}{}\n", message, "      |\n".blue().bold(), source_line, indicator)
                     }
                 } else {
                     println!("{}", message);
