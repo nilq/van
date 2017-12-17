@@ -8,8 +8,6 @@ an attempt to make a tiny high-control language with sugar syntax
 
 - parse flow control (if, for, ternary)
 
-- errors
-
 - semantics
 
 - transpiler and compiler

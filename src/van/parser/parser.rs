@@ -136,7 +136,7 @@ impl Parser {
         let mut stack  = Vec::new();
         let mut nested = 1;
 
-        while nested != 0 {      
+        while nested != 0 {
             if self.traveler.current_content() == delimeters.1 {
                 nested -= 1
             } else if self.traveler.current_content() == delimeters.0 {
@@ -296,11 +296,69 @@ impl Parser {
 
             TokenType::Symbol => match self.traveler.current_content().as_str() {
                 "("   => Ok(self.block_of(&Self::expression_, ("(", ")"))?.get(0).unwrap().clone()),
-                "["   => Ok(Expression::Array(self.block_of(&Self::expression_, ("[", "]"))?)),
+                "["   => Ok(Expression::Array(self.try_array()?.unwrap())),
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad symbol: {:?}", c))),
             },
 
             _ => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, self.traveler.current_content().len())), format!("unexpected: {:?}", self.traveler.current_content()))),
+        }
+    }
+
+    fn try_array(&mut self) -> Result<Option<Vec<Expression>>, Response> {
+        if self.traveler.current_content() == "[" {
+            self.traveler.next();
+        }
+
+        let mut nested = 1;
+
+        let mut stack    = Vec::new();
+        let mut is_array = false;
+        
+        let checkpoint = self.traveler.top;
+
+        while nested != 0 {
+            if self.traveler.current_content() == "]" {
+                nested -= 1
+            } else if self.traveler.current_content() == "[" {
+                nested += 1
+            }
+            
+            if nested == 0 {
+                break
+            }
+
+            if nested == 1 {
+                stack.push(self.expression()?);
+                
+                if is_array {
+                    self.traveler.expect_content(",")?;
+                    self.traveler.next();
+                } else {
+                    if self.traveler.current_content() == "," {
+                        is_array = true;
+                        self.traveler.next();
+                    } else {
+                        self.skip_whitespace_eol();
+
+                        if self.traveler.current_content() != "]" {
+                            return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, 1)), "something's wrong in this index".to_owned()))
+                        } else {
+                            self.traveler.top = checkpoint;
+                            return Ok(None)
+                        }
+                    }
+                }
+            }
+        }
+        
+        self.traveler.expect_content("]")?;
+        self.traveler.next();
+
+        if is_array {
+            Ok(Some(stack))
+        } else {
+            self.traveler.top = checkpoint;
+            Ok(None)
         }
     }
     
@@ -324,8 +382,6 @@ impl Parser {
         self.traveler.expect_content(":")?;
         self.traveler.next();
         
-        println!("heree?", );
-
         self.skip_whitespace();
 
         let t;
