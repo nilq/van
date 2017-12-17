@@ -66,11 +66,62 @@ impl Parser {
             }
         }
     }
+    
+    fn get_fun_type(&mut self) -> Result<Type, Response> {
+        self.traveler.next();
+        self.skip_whitespace();
+        
+        let mut params = Vec::new();
+        
+        let mut initial = true;
+        
+        while self.traveler.current_content() != "->" && self.traveler.current_content() != "\n" {
+            if !initial {
+                self.traveler.expect_content(",")?;
+                self.traveler.next();
+                self.skip_whitespace()
+            }
+
+            params.push(self.get_type()?);
+            self.skip_whitespace();
+
+            initial = false
+        }
+        
+        let retty = if self.traveler.current_content() == "->" {
+            self.traveler.next();
+            
+            self.skip_whitespace();
+            
+            Some(Rc::new(self.get_type()?))
+        } else {
+            None
+        };
+
+        Ok(Type::Fun(params, retty))
+    }
 
     fn get_type(&mut self) -> Result<Type, Response> {
-        let a = Type::Identifier(self.traveler.expect(TokenType::Identifier)?);
-        self.traveler.next();
-        Ok(a)
+        match self.traveler.current_content().as_str() {
+            "mut" => {
+                self.traveler.next();
+                
+                self.skip_whitespace();
+
+                let a = self.traveler.expect(TokenType::Identifier)?;
+                self.traveler.next();
+                
+                Ok(Type::Mut(Some(Rc::new(Type::Identifier(a)))))
+            },
+            
+            "fun" => self.get_fun_type(),
+
+            _ => {
+                let a = Type::Identifier(self.traveler.expect(TokenType::Identifier)?);
+                self.traveler.next();
+                Ok(a)
+            }
+        }
     }
     
     fn match_arm(self: &mut Self) -> Result<Option<MatchArm>, Response> {

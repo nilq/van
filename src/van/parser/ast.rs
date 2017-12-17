@@ -172,5 +172,6 @@ impl Operand {
 pub enum Type {
     Mut(Option<Rc<Type>>),
     Array(Rc<Type>, Option<Expression>),
+    Fun(Vec<Type>, Option<Rc<Type>>),
     Identifier(String),
 }
