@@ -285,8 +285,9 @@ impl Parser {
             },
 
             TokenType::Keyword => match self.traveler.current_content().as_str() {
-                "match" => Ok(Expression::MatchPattern(self.match_pattern()?)),
-                "if"    => Ok(Expression::If(Rc::new(self.if_pattern()?))),
+                "match"  => Ok(Expression::MatchPattern(self.match_pattern()?)),
+                "if"     => Ok(Expression::If(Rc::new(self.if_pattern()?))),
+                "unless" => Ok(Expression::Unless(Rc::new(Unless { base: self.if_pattern()? } ))),
                 
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad keyword: {:?}", c))),
             }
@@ -694,6 +695,7 @@ impl Parser {
                 "fun"      => Ok(Statement::Function(self.function()?)),
                 "struct"   => Ok(Statement::Struct(self.structure()?)),
                 "if"       => Ok(Statement::If(self.if_pattern()?)),
+                "unless"   => Ok(Statement::Unless(Unless { base: self.if_pattern()? } )),
                 "match"    => Ok(Statement::MatchPattern(self.match_pattern()?)),
 
                 _ => Ok(Statement::Expression(Rc::new(self.expression()?))),

@@ -4,8 +4,6 @@ an attempt to make a tiny high-control language with sugar syntax
 
 ## TODO
 
-- parse flow control (if, for, ternary)
-
 - parse interfaces
 
 - semantics

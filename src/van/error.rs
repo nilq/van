@@ -51,7 +51,7 @@ impl Response {
                         let prefix      = format!("{:5} |", pos.0.line + 1).blue().bold();
                         let source_line = format!("{} {}\n", prefix, line);
                         let indicator   = format!(
-                            "{:offset$}{}{:^<count$}", " ", "|".blue().bold(), " ".color(color).bold(),
+                            "{:offset$}{:^<count$}", " ", " ".color(color).bold(),
                             offset = prefix.len() + pos.0.col - 2,
                             count  = pos.1 + 1,
                         );

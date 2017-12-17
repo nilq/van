@@ -14,6 +14,7 @@ pub enum Expression {
     Call(Call),
     Array(Vec<Expression>),
     If(Rc<If>),
+    Unless(Rc<Unless>),
     EOF,
 }
 
@@ -79,6 +80,7 @@ pub enum Statement {
     Function(Function),
     Struct(Struct),
     If(If),
+    Unless(Unless),
     MatchPattern(MatchPattern),
 }
 
@@ -116,6 +118,11 @@ pub struct If {
     pub condition: Expression,
     pub body:      Vec<Statement>,
     pub elses:     Option<Vec<(Option<Expression>, Vec<Statement>)>>, // vec<(condition, body)?>
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Unless {
+    pub base: If,
 }
 
 #[derive(Debug, Clone, PartialEq)]

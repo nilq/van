@@ -5,18 +5,9 @@ use van::*;
 
 fn main() {
     let source = r#"
-a: string = if a == b {
-    "b minus zero"
-} elif true {
-    "elif"
-} else {
-    "else"
-}
-
-match a {
-    | "b minus zero" -> 1
-    | "else"         -> 2
-}
+unless 1 + 10 == 12 {
+    "the world is ok" |> print
+} 
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());
