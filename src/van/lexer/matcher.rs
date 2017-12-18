@@ -75,23 +75,27 @@ impl Matcher for StringLiteralMatcher {
                         tokenizer.next();
                         found_escape = true
                     },
-                    c if c == delimeter.unwrap() => break,
+                    c if delimeter.is_some() && c == delimeter.unwrap() => break,
                     _ => string.push(tokenizer.next().unwrap()),
                 }
             }
         }
         tokenizer.advance();
-        match delimeter.unwrap() {
-            '"'  => {
-                Some(token!(tokenizer, Str, string))
-            },
-            _ => {
-                if string.len() == 1 {
-                    Some(token!(tokenizer, Char, string))
-                } else {
-                    panic!("invalid char literal")
-                }
-            },
+        if delimeter.is_some() {
+            match delimeter.unwrap() {
+                '"'  => {
+                    Some(token!(tokenizer, Str, string))
+                },
+                _ => {
+                    if string.len() == 1 {
+                        Some(token!(tokenizer, Char, string))
+                    } else {
+                        panic!("invalid char literal")
+                    }
+                },
+            }
+        } else {
+            None
         }
     }
 }

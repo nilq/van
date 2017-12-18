@@ -86,6 +86,7 @@ pub enum Statement {
     MatchPattern(MatchPattern),
     Interface(Interface),
     Implementation(Implementation),
+    Return(Option<Expression>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -343,7 +343,7 @@ impl Parser {
                     nested = 1
                 }
 
-                while self.traveler.current().token_type != TokenType::Operator || nested != 0 {
+                while (self.traveler.current().token_type != TokenType::Operator && self.traveler.current_content() != "," && self.traveler.current_content() != "]") || nested != 0 {
                     if self.traveler.current_content() == "\n" || self.traveler.remaining() < 2 {
                         break
                     }
@@ -430,7 +430,10 @@ impl Parser {
                     let a = self.try_call(a)?;
                     self.try_index(a)
                 },
-                "["   => Ok(Expression::Array(self.try_array()?.unwrap())),
+                "["   => {
+                    let a = self.try_array()?.unwrap();
+                    self.try_index(Expression::Array(a))
+                }
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad symbol: {:?}", c))),
             },
 
@@ -911,6 +914,21 @@ impl Parser {
                 "match"     => Ok(Statement::MatchPattern(self.match_pattern()?)),
                 "interface" => Ok(Statement::Interface(self.interface()?)),
                 "implement" => Ok(Statement::Implementation(self.implementation()?)),
+                "return"    => {
+                    self.traveler.next();
+
+                    let backup = self.traveler.top;
+
+                    self.skip_whitespace();
+
+                    if !self.traveler.current_content().chars().any(|x| x == '\n') {
+                        Ok(Statement::Return(Some(self.expression()?)))
+                    } else {
+                        self.traveler.top = backup;
+
+                        Ok(Statement::Return(None))
+                    }
+                },
 
                 _ => Ok(Statement::Expression(Rc::new(self.expression()?))),
             },
@@ -929,7 +947,6 @@ impl Parser {
     }
     
     fn operation(&mut self, expression: Expression) -> Result<Expression, Response> {
-
         let mut ex_stack = vec![expression];
         let mut op_stack: Vec<(Operand, u8)> = Vec::new();
         
