@@ -56,7 +56,7 @@ pub struct Call {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Index {
     pub id:       Rc<Expression>,
-    pub index:    String,
+    pub index:    Rc<Expression>,
     pub position: TokenPosition,
 }
 

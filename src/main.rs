@@ -7,7 +7,7 @@ fn main() {
     let source = r#"
 a: [int; 3] = [1, 2, 3,]
 
-a.foo.bar
+a[0 +  100 ][10]
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

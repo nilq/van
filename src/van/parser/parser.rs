@@ -261,21 +261,39 @@ impl Parser {
             args,
         })
     }
-    
+
     fn try_index(&mut self, a: Expression) -> Result<Expression, Response> {
         match self.traveler.current().token_type {
             TokenType::Symbol => match self.traveler.current_content().as_str() {
                 "." => {
-                    
                     self.traveler.next();
                     self.skip_whitespace();
 
-                    let index = self.traveler.expect(TokenType::Identifier)?;
+                    let index = Rc::new(Expression::Identifier(self.traveler.expect(TokenType::Identifier)?, self.traveler.current().position));
                     self.traveler.next();
 
                     let position = self.traveler.current().position;
 
                     Ok(self.try_index(Expression::Index(Index {id: Rc::new(a), index, position}))?)
+                }
+                
+                "[" => {
+                    self.traveler.next();
+                    self.skip_whitespace();
+                    
+                    let index = Rc::new(self.expression()?);
+                    
+                    self.skip_whitespace();
+                    self.traveler.expect_content("]")?;
+                    self.traveler.next();
+
+                    let position = self.traveler.current().position;
+                    
+                    let b = self.try_index(Expression::Index(Index {id: Rc::new(a), index, position}))?;
+
+                    self.skip_whitespace();
+                    println!("{:?}", self.traveler.current_content());
+                    Ok(self.try_call(b)?)
                 }
 
                 _   => Ok(a),
@@ -296,7 +314,16 @@ impl Parser {
                 let backup = self.traveler.top;
 
                 if self.traveler.current().token_type == TokenType::Symbol {
-                    if self.traveler.current_content() != "(" {
+                    self.traveler.prev();
+
+                    if self.traveler.current().token_type == TokenType::Whitespace {
+                        self.skip_whitespace();
+
+                        if self.traveler.current_content() != "(" && self.traveler.current_content() != "[" {
+                            self.traveler.top = backup;
+                            return Ok(a)
+                        }
+                    } else {
                         self.traveler.top = backup;
                         return Ok(a)
                     }
@@ -420,7 +447,7 @@ impl Parser {
 
         let mut stack    = Vec::new();
         let mut is_array = false;
-        
+
         let checkpoint = self.traveler.top;
 
         while nested != 0 {
@@ -448,7 +475,7 @@ impl Parser {
                         self.skip_whitespace_eol();
 
                         if self.traveler.current_content() != "]" {
-                            return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, 1)), "something's wrong in this index".to_owned()))
+                            return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, 1)), "something's wrong in this array".to_owned()))
                         } else {
                             self.traveler.top = checkpoint;
                             return Ok(None)
