@@ -30,7 +30,7 @@ pub fn make_lexer(data: Vec<char>) -> Lexer {
     lexer.matchers_mut().push(Rc::new(operator_matcher));
 
     let symbol_matcher = ConstantCharMatcher::new(TokenType::Symbol, &[
-        '(', ')', '[', ']', '{', '}', ',', ':', ';', '!', '|', '=', '\\',
+        '(', ')', '[', ']', '{', '}', ',', ':', ';', '!', '|', '=', '\\', '.'
     ]);
 
     lexer.matchers_mut().push(Rc::new(symbol_matcher));

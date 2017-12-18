@@ -5,7 +5,9 @@ use van::*;
 
 fn main() {
     let source = r#"
-((foo) 10 + 10)
+a: [int; 3] = [1, 2, 3,]
+
+a.foo.bar
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

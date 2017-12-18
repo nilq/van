@@ -12,6 +12,7 @@ pub enum Expression {
     BinaryOp(BinaryOp),
     MatchPattern(MatchPattern),
     Call(Call),
+    Index(Index),
     Array(Vec<Expression>),
     If(Rc<If>),
     Unless(Rc<Unless>),
@@ -54,8 +55,8 @@ pub struct Call {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Index {
-    pub id:    Rc<Expression>,
-    pub index: Rc<Expression>,
+    pub id:       Rc<Expression>,
+    pub index:    String,
     pub position: TokenPosition,
 }
 

@@ -53,20 +53,6 @@ impl Parser {
         }
     }
     
-    fn back_whitespace(&mut self) {
-        loop {
-            match self.traveler.current().token_type {
-                TokenType::Whitespace |
-                TokenType::EOL => { self.traveler.prev(); },
-                _ => break,
-            }
-
-            if self.traveler.top < 2 {
-                break
-            }
-        }
-    }
-    
     fn get_fun_type(&mut self) -> Result<Type, Response> {
         self.traveler.next();
         self.skip_whitespace();
@@ -276,6 +262,29 @@ impl Parser {
         })
     }
     
+    fn try_index(&mut self, a: Expression) -> Result<Expression, Response> {
+        match self.traveler.current().token_type {
+            TokenType::Symbol => match self.traveler.current_content().as_str() {
+                "." => {
+                    
+                    self.traveler.next();
+                    self.skip_whitespace();
+
+                    let index = self.traveler.expect(TokenType::Identifier)?;
+                    self.traveler.next();
+
+                    let position = self.traveler.current().position;
+
+                    Ok(self.try_index(Expression::Index(Index {id: Rc::new(a), index, position}))?)
+                }
+
+                _   => Ok(a),
+            },
+            
+            _ => Ok(a),
+        }
+    }
+    
     fn try_call(&mut self, a: Expression) -> Result<Expression, Response> {
         match self.traveler.current().token_type {
             TokenType::Int        |
@@ -285,8 +294,6 @@ impl Parser {
             TokenType::Char       |
             TokenType::Symbol     => {
                 let backup = self.traveler.top;
-                
-                println!("{:?} and {}", self.traveler.current_content(), self.traveler.remaining());
 
                 if self.traveler.current().token_type == TokenType::Symbol {
                     if self.traveler.current_content() != "(" {
@@ -297,7 +304,7 @@ impl Parser {
                 
                 if self.traveler.remaining() < 2 {
                     self.traveler.top = backup;
-                    
+                
                     return Ok(a)
                 }
 
@@ -369,7 +376,8 @@ impl Parser {
                 self.traveler.next();
                 self.skip_whitespace();
 
-                self.try_call(a)
+                let a = self.try_call(a)?;
+                self.try_index(a)
             },
 
             TokenType::Keyword => match self.traveler.current_content().as_str() {
@@ -391,7 +399,9 @@ impl Parser {
                 "("   => {
                     let a = self.block_of(&Self::expression_, ("(", ")"))?.get(0).unwrap().clone();
                     self.skip_whitespace();
-                    self.try_call(a)
+
+                    let a = self.try_call(a)?;
+                    self.try_index(a)
                 },
                 "["   => Ok(Expression::Array(self.try_array()?.unwrap())),
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad symbol: {:?}", c))),
@@ -820,20 +830,28 @@ impl Parser {
                 let position = self.traveler.current().position;
 
                 let b = if self.traveler.current_content() == "=" {
-                    self.assignment(Rc::new(Expression::Identifier(a, position)))?
+                    
+                    let c = self.assignment(Rc::new(Expression::Identifier(a, position)))?;
+                    if self.traveler.remaining() > 1 {
+                        self.traveler.expect_content("\n")?;
+                        self.traveler.next();
+                    }
+                    
+                    c
+
                 } else if self.traveler.current_content() == ":" {
                     let c = self.definition(a)?;
+                    
+                    if self.traveler.remaining() > 1 {
+                        self.traveler.expect_content("\n")?;
+                        self.traveler.next();
+                    }
 
                     Statement::Definition(c)
                 } else {
                     self.traveler.top = backup;
                     Statement::Expression(Rc::new(self.expression()?))
                 };
-
-                if self.traveler.remaining() > 1 {                    
-                    self.traveler.expect_content("\n")?;
-                    self.traveler.next();
-                }
 
                 Ok(b)
             },
