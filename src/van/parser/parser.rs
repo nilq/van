@@ -115,7 +115,7 @@ impl Parser {
             },
             
             "fun" => self.get_fun_type(),
-            
+
             "["   => {
                 self.traveler.next();
                 self.skip_whitespace_eol();
@@ -275,6 +275,62 @@ impl Parser {
             args,
         })
     }
+    
+    fn try_call(&mut self, a: Expression) -> Result<Expression, Response> {
+        match self.traveler.current().token_type {
+            TokenType::Int        |
+            TokenType::Identifier |
+            TokenType::Bool       |
+            TokenType::Str        |
+            TokenType::Char       |
+            TokenType::Symbol     => {
+                let backup = self.traveler.top;
+                
+                println!("{:?} and {}", self.traveler.current_content(), self.traveler.remaining());
+
+                if self.traveler.current().token_type == TokenType::Symbol {
+                    if self.traveler.current_content() != "(" {
+                        self.traveler.top = backup;
+                        return Ok(a)
+                    }
+                }
+                
+                if self.traveler.remaining() < 2 {
+                    self.traveler.top = backup;
+                    
+                    return Ok(a)
+                }
+
+                let mut stack = Vec::new();
+
+                let mut nested = 0;
+
+                if self.inside == "(" {
+                    nested = 1
+                }
+
+                while self.traveler.current().token_type != TokenType::Operator || nested != 0 {
+                    if self.traveler.current_content() == "\n" || self.traveler.remaining() < 2 {
+                        break
+                    }
+
+                    if self.traveler.current_content() == "(" {
+                        nested += 1
+                    } else if self.traveler.current_content() == ")" {
+                        nested -= 1
+                    }
+
+                    stack.push(self.traveler.current().clone());
+                    self.traveler.next();
+                }
+
+                let mut parser = Parser::new(Traveler::new(stack));
+
+                Ok(Expression::Call(Self::call(&mut parser, Rc::new(a))?))
+            }
+            _ => Ok(a)
+        }
+    }
 
     fn atom(&mut self) -> Result<Expression, Response> {       
         self.skip_whitespace();
@@ -313,54 +369,7 @@ impl Parser {
                 self.traveler.next();
                 self.skip_whitespace();
 
-                if self.traveler.current().token_type == TokenType::Whitespace {
-                    self.traveler.next();
-                }
-
-                match self.traveler.current().token_type {
-                    TokenType::Int        |
-                    TokenType::Identifier |
-                    TokenType::Bool       |
-                    TokenType::Str        |
-                    TokenType::Char       |
-                    TokenType::Symbol     => {
-                        self.skip_whitespace();
-
-                        if self.traveler.current().token_type == TokenType::Symbol {
-                            if self.traveler.current_content() != "(" {
-                                return Ok(a)
-                            }
-                        }
-
-                        let mut stack = Vec::new();
-
-                        let mut nested = 0;
-
-                        if self.inside == "(" {
-                            nested = 1
-                        }
-
-                        while self.traveler.current().token_type != TokenType::Operator || nested != 0 {
-                            if self.traveler.current_content() == "\n" || self.traveler.remaining() < 2 {
-                                break
-                            }
-
-                            if self.traveler.current_content() == "(" {
-                                nested += 1
-                            } else if self.traveler.current_content() == ")" {
-                                nested -= 1
-                            }
-
-                            stack.push(self.traveler.current().clone());
-                            self.traveler.next();
-                        }
-
-                        let mut parser = Parser::new(Traveler::new(stack));
-
-                        Ok(Expression::Call(Self::call(&mut parser, Rc::new(a))?))
-                    }
-                    _ => Ok(a)
-                }
+                self.try_call(a)
             },
 
             TokenType::Keyword => match self.traveler.current_content().as_str() {
@@ -379,7 +388,11 @@ impl Parser {
             }
 
             TokenType::Symbol => match self.traveler.current_content().as_str() {
-                "("   => Ok(self.block_of(&Self::expression_, ("(", ")"))?.get(0).unwrap().clone()),
+                "("   => {
+                    let a = self.block_of(&Self::expression_, ("(", ")"))?.get(0).unwrap().clone();
+                    self.skip_whitespace();
+                    self.try_call(a)
+                },
                 "["   => Ok(Expression::Array(self.try_array()?.unwrap())),
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad symbol: {:?}", c))),
             },
@@ -797,6 +810,8 @@ impl Parser {
 
         match self.traveler.current().token_type {
             TokenType::Identifier => {
+                let backup = self.traveler.top;
+                
                 let a = self.traveler.current_content().clone();
                 self.traveler.next();
 
@@ -811,9 +826,7 @@ impl Parser {
 
                     Statement::Definition(c)
                 } else {
-                    self.back_whitespace();
-                    self.traveler.prev();
-
+                    self.traveler.top = backup;
                     Statement::Expression(Rc::new(self.expression()?))
                 };
 
