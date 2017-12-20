@@ -261,6 +261,33 @@ impl Parser {
             args,
         })
     }
+    
+    fn initialization(&mut self) -> Result<Initialization, Response> {
+        self.traveler.expect_content("new")?;
+        self.traveler.next();
+        
+        self.skip_whitespace();
+        
+        if self.traveler.current().token_type == TokenType::Identifier {
+            let id = self.expression()?;
+            
+            self.skip_whitespace();
+            
+            let values = self.block_of(&Self::assignment_, ("{", "}"))?;
+            
+            Ok(Initialization {
+                id: Some(id),
+                values,
+            })    
+        } else {            
+            let values = self.block_of(&Self::assignment_, ("{", "}"))?;
+            
+            Ok(Initialization {
+                id: None,
+                values,
+            })
+        }
+    }
 
     fn try_index(&mut self, a: Expression) -> Result<Expression, Response> {
         match self.traveler.current().token_type {
@@ -411,6 +438,7 @@ impl Parser {
                 "match"  => Ok(Expression::MatchPattern(self.match_pattern()?)),
                 "if"     => Ok(Expression::If(Rc::new(self.if_pattern()?))),
                 "unless" => Ok(Expression::Unless(Rc::new(Unless { base: self.if_pattern()? } ))),
+                "new"    => Ok(Expression::Initialization(Rc::new(self.initialization()?))),
                 
                 "struct" => {
                     self.traveler.next();
@@ -499,18 +527,17 @@ impl Parser {
         }
     }
     
-    fn assignment(&mut self, left: Rc<Expression>) -> Result<Statement, Response> {
+    fn assignment(&mut self, left: Rc<Expression>) -> Result<Assignment, Response> {
         self.traveler.next();
+        self.skip_whitespace();
 
         let right = Rc::new(self.expression()?);
 
-        Ok(Statement::Assignment(
-            Assignment {
-                left,
-                right,
-                position: self.traveler.current().position,
-            }
-        ))
+        Ok(Assignment {
+            left,
+            right,
+            position: self.traveler.current().position,
+        })
     }
 
     fn definition(&mut self, name: String) -> Result<Definition, Response> {
@@ -588,6 +615,32 @@ impl Parser {
                 ref e           => Ok(Some(Statement::Expression(Rc::new(e.clone())))),
             },
             c => Ok(Some(c)),
+        }
+    }
+
+    fn assignment_(self: &mut Self) -> Result<Option<Assignment>, Response> {
+        if self.traveler.remaining() > 2 {
+            let position = self.traveler.current().position;
+            
+            self.skip_whitespace_eol();
+
+            let left = Rc::new(Expression::Identifier(self.traveler.expect(TokenType::Identifier)?, position));
+            self.traveler.next();
+            self.skip_whitespace();
+            
+            self.traveler.expect_content("=")?;
+            self.traveler.next();
+            self.skip_whitespace();
+            
+            let right = Rc::new(self.expression()?);
+            
+            Ok(Some(Assignment {
+                left,
+                right,
+                position: self.traveler.current().position,
+            }))
+        } else {
+            Ok(None)
         }
     }
 
@@ -854,14 +907,13 @@ impl Parser {
                 
                 let a = self.traveler.current_content().clone();
                 self.traveler.next();
-
-                self.skip_whitespace_eol();
+                self.skip_whitespace();
                 
                 let position = self.traveler.current().position;
 
                 let b = if self.traveler.current_content() == "=" {
                     
-                    let c = self.assignment(Rc::new(Expression::Identifier(a, position)))?;
+                    let c = Statement::Assignment(self.assignment(Rc::new(Expression::Identifier(a, position)))?);
                     if self.traveler.remaining() > 1 {
                         self.traveler.expect_content("\n")?;
                         self.traveler.next();

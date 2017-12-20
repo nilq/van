@@ -152,7 +152,17 @@ struct Point {
 }
 ```
 
-TODO: initialization syntax hmm
+```
+pos: Point = new {
+    x = 10
+    y = 10
+}
+
+pos2 := new Point {
+    x = 100
+    y = 100
+}
+```
 
 ### interface
 

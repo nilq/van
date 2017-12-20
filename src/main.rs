@@ -5,7 +5,21 @@ use van::*;
 
 fn main() {
     let source = r#"
-[1, 2,][foo 10]
+struct Point {
+    x: int
+    y: int
+}
+
+pos: Point = new {
+    x = 10
+    y = 10
+}
+
+pos2 := new Point {
+    x = 100
+    y = 100
+}
+
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

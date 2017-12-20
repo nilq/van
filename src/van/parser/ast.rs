@@ -17,6 +17,7 @@ pub enum Expression {
     If(Rc<If>),
     Unless(Rc<Unless>),
     Struct(Vec<TypeDefinition>),
+    Initialization(Rc<Initialization>),
     EOF,
 }
 
@@ -64,6 +65,12 @@ pub struct Index {
 pub struct TypeDefinition {
     pub name: String,
     pub t: Type,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Initialization {
+    pub id:     Option<Expression>,
+    pub values: Vec<Assignment>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
