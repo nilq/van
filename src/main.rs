@@ -5,11 +5,9 @@ use van::*;
 
 fn main() {
     let source = r#"
-import a
-import a.b expose (Pasta)
-
-import foo expose (Entity Component)
-import bar expose ...
+fun tuple_int a: int b: int -> [int; 2] {
+    [a, b,]
+}
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

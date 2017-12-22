@@ -109,10 +109,10 @@ pub struct IdentifierMatcher;
 impl Matcher for IdentifierMatcher {
     fn try_match(&self, tokenizer: &mut Tokenizer) -> Option<Token> {
         if !tokenizer.peek().unwrap().is_alphabetic() {
-            return None;
+            return None
         }
 
-        let string = tokenizer.collect_if(|c| c.is_alphanumeric());
+        let string = tokenizer.collect_if(|c| c.is_alphanumeric() || "_!".contains(c.clone()));
 
         if string.is_empty() {
             None
