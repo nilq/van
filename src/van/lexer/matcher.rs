@@ -112,7 +112,7 @@ impl Matcher for IdentifierMatcher {
             return None
         }
 
-        let string = tokenizer.collect_if(|c| c.is_alphanumeric() || "_!".contains(c.clone()));
+        let string = tokenizer.collect_if(|c| c.is_alphanumeric() || "_!?".contains(*c));
 
         if string.is_empty() {
             None
@@ -195,11 +195,11 @@ impl Matcher for ConstantStringMatcher {
 
 pub struct KeyMatcher {
     token_type: TokenType,
-    constants: Vec<String>,
+    constants: &'static [&'static str],
 }
 
 impl KeyMatcher {
-    pub fn new(token_type: TokenType, constants: Vec<String>) -> Self {
+    pub fn new(token_type: TokenType, constants:  &'static [&'static str]) -> Self {
         KeyMatcher {
             token_type,
             constants,
@@ -213,15 +213,15 @@ impl Matcher for KeyMatcher {
             let dat = tokenizer.clone().take(constant.len());
             if dat.size_hint().1.unwrap() != constant.len() {
                 return None
-            } else if dat.collect::<String>() == constant {
+            } else if &&dat.collect::<String>() == constant {
                 if let Some(c) = tokenizer.peek_n(constant.len()) {
-                    if "_?".contains(*c) || c.is_alphanumeric() {
+                    if "_!".contains(*c) || c.is_alphanumeric() {
                         return None
                     }
                 }
 
                 tokenizer.advance_n(constant.len());
-                return Some(token!(tokenizer, self.token_type.clone(), constant))
+                return Some(token!(tokenizer, self.token_type.clone(), constant.to_string()))
             }
         }
         None

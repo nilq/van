@@ -59,21 +59,11 @@ impl Parser {
         
         let mut params = Vec::new();
         
-        let mut initial = true;
-        
         while self.traveler.current_content() != "->" && self.traveler.current_content() != "\n" {
-            if !initial {
-                self.traveler.expect_content(",")?;
-                self.traveler.next();
-                self.skip_whitespace()
-            }
-
             params.push(self.get_type()?);
             self.skip_whitespace();
-
-            initial = false
         }
-        
+
         let retty = if self.traveler.current_content() == "->" {
             self.traveler.next();
             
@@ -275,6 +265,7 @@ impl Parser {
             
             let values = self.block_of(&Self::assignment_, ("{", "}"))?;
             
+
             Ok(Initialization {
                 id: Some(id),
                 values,
@@ -527,7 +518,7 @@ impl Parser {
         }
     }
     
-    fn assignment(&mut self, left: Rc<Expression>) -> Result<Assignment, Response> {
+    fn assignment(&mut self, left: Rc<Expression>) -> Result<Assignment, Response> {        
         self.traveler.next();
         self.skip_whitespace();
 
@@ -619,6 +610,8 @@ impl Parser {
     }
 
     fn assignment_(self: &mut Self) -> Result<Option<Assignment>, Response> {
+        self.skip_whitespace_eol();
+
         if self.traveler.remaining() > 2 {
             let position = self.traveler.current().position;
             
@@ -755,16 +748,20 @@ impl Parser {
         self.traveler.next();
         
         self.skip_whitespace();
-        
-        self.traveler.expect_content("as")?;
-        self.traveler.next();
-        
-        self.skip_whitespace();
-        
-        let interface = self.traveler.expect(TokenType::Identifier)?;
-        self.traveler.next();
-        
-        self.skip_whitespace();
+
+        let interface = if self.traveler.current_content() == "as" {
+            self.traveler.next();
+
+            self.skip_whitespace();
+
+            let interface = self.traveler.expect(TokenType::Identifier)?;
+            self.traveler.next();
+            self.skip_whitespace();
+
+            Some(interface)
+        } else {
+            None
+        };
         
         let body = self.block_of(&Self::function_, ("{", "}"))?;
         
@@ -965,29 +962,51 @@ impl Parser {
                 self.skip_whitespace();
                 
                 let position = self.traveler.current().position;
-
-                let b = if self.traveler.current_content() == "=" {
+                
+                let b = if self.traveler.current_content() == "." {
+                    let a = self.try_index(Expression::Identifier(a, position))?;
                     
-                    let c = Statement::Assignment(self.assignment(Rc::new(Expression::Identifier(a, position)))?);
-                    if self.traveler.remaining() > 1 {
-                        self.traveler.expect_content("\n")?;
-                        self.traveler.next();
+                    self.skip_whitespace();
+
+                    if self.traveler.current_content() == "=" {
+                        
+                        let c = Statement::Assignment(self.assignment(Rc::new(a))?);
+                        if self.traveler.remaining() > 1 {
+                            self.traveler.expect_content("\n")?;
+                            self.traveler.next();
+                        }
+                        
+                        c
+                    } else {
+                        Statement::Expression(Rc::new(a))
                     }
-                    
-                    c
 
-                } else if self.traveler.current_content() == ":" {
-                    let c = self.definition(a)?;
-                    
-                    if self.traveler.remaining() > 1 {
-                        self.traveler.expect_content("\n")?;
-                        self.traveler.next();
-                    }
-
-                    Statement::Definition(c)
                 } else {
-                    self.traveler.top = backup;
-                    Statement::Expression(Rc::new(self.expression()?))
+                    if self.traveler.current_content() == "=" {
+                        
+                        let left = Expression::Identifier(a, position);
+                        
+                        let c = Statement::Assignment(self.assignment(Rc::new(left))?);
+                        if self.traveler.remaining() > 1 {
+                            self.traveler.expect_content("\n")?;
+                            self.traveler.next();
+                        }
+                        
+                        c
+
+                    } else if self.traveler.current_content() == ":" {
+                        let c = self.definition(a)?;
+                        
+                        if self.traveler.remaining() > 1 {
+                            self.traveler.expect_content("\n")?;
+                            self.traveler.next();
+                        }
+
+                        Statement::Definition(c)
+                    } else {
+                        self.traveler.top = backup;
+                        Statement::Expression(Rc::new(self.expression()?))
+                    }
                 };
 
                 Ok(b)

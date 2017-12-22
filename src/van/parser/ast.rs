@@ -153,7 +153,7 @@ pub struct Unless {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Implementation {
     pub structure: String,
-    pub interface: String,
+    pub interface: Option<String>,
     pub body:      Vec<Function>,
 }
 
