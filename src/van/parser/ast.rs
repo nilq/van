@@ -94,6 +94,7 @@ pub enum Statement {
     Interface(Interface),
     Implementation(Implementation),
     Return(Option<Expression>),
+    Import(Import),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -154,6 +155,19 @@ pub struct Implementation {
     pub structure: String,
     pub interface: String,
     pub body:      Vec<Function>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Expose {
+    Specifically(Vec<String>),
+    Everything,
+    Nothing,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Import {
+    pub from:   Expression,
+    pub expose: Expose,
 }
 
 #[derive(Debug, Clone, PartialEq)]

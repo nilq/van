@@ -4,6 +4,14 @@ an attempt to make a tiny high-control language with a fair amount of sugar
 
 ## TODO
 
+- in-the-wild blocks
+
+- tuples
+
+- group assignments
+
+- records?
+
 - semantics
 
 - transpiler and compiler

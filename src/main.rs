@@ -5,21 +5,11 @@ use van::*;
 
 fn main() {
     let source = r#"
-struct Point {
-    x: int
-    y: int
-}
+import a
+import a.b expose (Pasta)
 
-pos: Point = new {
-    x = 10
-    y = 10
-}
-
-pos2 := new Point {
-    x = 100
-    y = 100
-}
-
+import foo expose (Entity Component)
+import bar expose ...
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

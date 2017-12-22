@@ -14,7 +14,7 @@ pub fn make_lexer(data: Vec<char>) -> Lexer {
     lexer.matchers_mut().push(Rc::new(bool_matcher));
 
     let key_matcher = ConstantStringMatcher::new(TokenType::Keyword, &[
-        "return", "mut", "function", "fun", "struct", "interface", "new", "implement", "as", "if", "unless", "elif", "else", "match", "->",
+        "...", "import", "expose", "return", "mut", "function", "fun", "struct", "interface", "new", "implement", "as", "if", "unless", "elif", "else", "match", "->",
     ]);
     lexer.matchers_mut().push(Rc::new(key_matcher));
 

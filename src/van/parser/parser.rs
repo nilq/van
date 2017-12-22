@@ -459,7 +459,7 @@ impl Parser {
                     self.try_index(a)
                 },
                 "["   => {
-                    let a = self.try_array()?.unwrap();
+                    let a = self.try_list(("[", "]"))?.unwrap();
                     self.try_index(Expression::Array(a))
                 }
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad symbol: {:?}", c))),
@@ -469,8 +469,8 @@ impl Parser {
         }
     }
 
-    fn try_array(&mut self) -> Result<Option<Vec<Expression>>, Response> {
-        if self.traveler.current_content() == "[" {
+    fn try_list(&mut self, delimeters: (&str, &str)) -> Result<Option<Vec<Expression>>, Response> {
+        if self.traveler.current_content() == delimeters.0 {
             self.traveler.next();
         }
 
@@ -482,9 +482,9 @@ impl Parser {
         let checkpoint = self.traveler.top;
 
         while nested != 0 {
-            if self.traveler.current_content() == "]" {
+            if self.traveler.current_content() == delimeters.1 {
                 nested -= 1
-            } else if self.traveler.current_content() == "[" {
+            } else if self.traveler.current_content() == delimeters.0 {
                 nested += 1
             }
 
@@ -505,7 +505,7 @@ impl Parser {
                     } else {
                         self.skip_whitespace_eol();
 
-                        if self.traveler.current_content() != "]" {
+                        if self.traveler.current_content() != delimeters.1 {
                             return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, 1)), "something's wrong in this array".to_owned()))
                         } else {
                             self.traveler.top = checkpoint;
@@ -775,6 +775,61 @@ impl Parser {
         })
     }
     
+    fn import(&mut self) -> Result<Import, Response> {
+        self.traveler.next();
+        self.skip_whitespace();
+
+        let a = Expression::Identifier(self.traveler.expect(TokenType::Identifier)?, self.traveler.current().position);
+
+        self.traveler.next();
+        let from = self.try_index(a)?;
+
+        self.skip_whitespace();
+        
+        if self.traveler.current_content() == "expose" {
+            self.traveler.next();
+            self.skip_whitespace();
+            
+            if self.traveler.current_content() == "(" {
+                self.traveler.next();
+
+                let mut expose = Vec::new();
+
+                while self.traveler.current_content() != ")" {
+                    expose.push(self.traveler.expect(TokenType::Identifier)?);
+                    self.traveler.next();
+                    self.skip_whitespace_eol();
+                }
+
+                self.traveler.next();
+
+                Ok(Import {
+                    from,
+                    expose: Expose::Specifically(expose),
+                 })
+            } else {
+                self.traveler.expect_content("...")?;
+                self.traveler.next();
+                self.skip_whitespace();
+                self.traveler.expect_content("\n")?;
+                self.traveler.next();
+                
+                Ok(Import {
+                    from,
+                    expose: Expose::Everything,
+                })
+            }
+
+        } else {
+            self.traveler.expect_content("\n")?;
+            self.traveler.next();
+            Ok(Import {
+                from,
+                expose: Expose::Nothing,
+            })
+        }
+    }
+    
     fn if_pattern(&mut self) -> Result<If, Response> {
         self.traveler.next();
 
@@ -966,6 +1021,7 @@ impl Parser {
                 "match"     => Ok(Statement::MatchPattern(self.match_pattern()?)),
                 "interface" => Ok(Statement::Interface(self.interface()?)),
                 "implement" => Ok(Statement::Implementation(self.implementation()?)),
+                "import"    => Ok(Statement::Import(self.import()?)),
                 "return"    => {
                     self.traveler.next();
 
