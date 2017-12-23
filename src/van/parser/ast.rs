@@ -224,4 +224,5 @@ pub enum Type {
     Array(Rc<Type>, Option<Expression>),
     Fun(Vec<Type>, Option<Rc<Type>>),
     Identifier(String),
+    Undefined,
 }

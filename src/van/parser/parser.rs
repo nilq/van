@@ -38,7 +38,7 @@ impl Parser {
             }
         }
     }
-    
+
     fn skip_whitespace_eol(&mut self) {
         loop {
             match self.traveler.current().token_type {
@@ -124,7 +124,7 @@ impl Parser {
                     Ok(Type::Array(t, None))
                 }
             }
-            
+
             "(" => {
                 self.traveler.next();
                 self.skip_whitespace();
@@ -203,7 +203,7 @@ impl Parser {
     fn block_of<B>(&mut self, match_with: &Fn(&mut Self) -> Result<Option<B>, Response>, delimeters: (&str, &str)) -> Result<Vec<B>, Response> {
         let backup_inside = self.inside.clone();
         self.inside       = delimeters.0.to_owned();
-        
+
         if self.traveler.current_content() == delimeters.0 {
             self.traveler.next();
         }
@@ -217,7 +217,7 @@ impl Parser {
             } else if self.traveler.current_content() == delimeters.0 {
                 nested += 1
             }
-            
+
             if nested == 0 {
                 break
             }
