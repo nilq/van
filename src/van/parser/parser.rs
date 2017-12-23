@@ -124,6 +124,19 @@ impl Parser {
                     Ok(Type::Array(t, None))
                 }
             }
+            
+            "(" => {
+                self.traveler.next();
+                self.skip_whitespace();
+                
+                let a = self.get_type()?;
+
+                self.skip_whitespace();
+                self.traveler.expect_content(")")?;
+                self.traveler.next();
+                
+                Ok(a)
+            }
 
             _ => {
                 let a = Type::Identifier(self.traveler.expect(TokenType::Identifier)?);
