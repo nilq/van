@@ -5,21 +5,9 @@ use van::*;
 
 fn main() {
     let source = r#"
-c: number = 10
-
-a: bool = {
-    b := c + 10
-
-    if b % 2 == 0 {
-        true
-    } else {
-        false
-    }
-}
-
-fun love ["update"] dt: number {
-    dt |> print
-}
+love.thing := 10
+love.thing: number = 10
+mut love.thing: string = r"hey\n"
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());
