@@ -5,9 +5,14 @@ use van::*;
 
 fn main() {
     let source = r#"
-love.keypressed := function {
-    | "space" -> "jump" |> print
-    | "left"  -> "walk" |> print
+keypressed: mut fun string bool = extern love.draw
+
+extern import deepcopy expose (deepcopy)
+
+extern struct love {
+    load:   mut fun
+    draw:   mut fun
+    update: mut fun mut number
 }
     "#;
 

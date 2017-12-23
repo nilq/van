@@ -21,6 +21,7 @@ pub enum Expression {
     Initialization(Rc<Initialization>),
     FunctionMatch(Rc<FunctionMatch>),
     Fun(Rc<Fun>),
+    Extern(Rc<Expression>),
     EOF,
 }
 
@@ -98,6 +99,7 @@ pub enum Statement {
     Implementation(Implementation),
     Return(Option<Expression>),
     Import(Import),
+    Extern(Rc<Statement>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

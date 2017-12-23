@@ -14,19 +14,19 @@ pub fn make_lexer(data: Vec<char>) -> Lexer {
     lexer.matchers_mut().push(Rc::new(bool_matcher));
 
     let key_matcher = KeyMatcher::new(TokenType::Keyword, &[
-        "...", "import", "expose", "return", "mut", "function", "fun", "struct", "interface", "new", "implement", "as", "if", "unless", "elif", "else", "match", "->",
+        "...", "import", "expose", "return", "mut", "function", "fun", "struct", "interface", "new", "implement", "as", "if", "unless", "elif", "else", "match", "->", "extern",
     ]);
     lexer.matchers_mut().push(Rc::new(key_matcher));
 
     lexer.matchers_mut().push(Rc::new(IdentifierMatcher));
-    
+
     let eol_matcher = ConstantCharMatcher::new(TokenType::EOL, &['\n']);
     lexer.matchers_mut().push(Rc::new(eol_matcher));
 
     let operator_matcher = ConstantStringMatcher::new(TokenType::Operator, &[
         "++", "+", "-", "*", "/", "^^", "^", ">=", "<=", "==", "!=", "<|", "|>", "<", ">", "%",
     ]);
-    
+
     lexer.matchers_mut().push(Rc::new(operator_matcher));
 
     let symbol_matcher = ConstantCharMatcher::new(TokenType::Symbol, &[

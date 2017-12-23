@@ -59,7 +59,16 @@ impl Parser {
         
         let mut params = Vec::new();
         
-        while self.traveler.current_content() != "->" && self.traveler.current_content() != "\n" {
+        loop {
+            if self.traveler.current().token_type != TokenType::Identifier {
+                match self.traveler.current_content().as_str() {
+                    "mut" |
+                    "fun" |
+                    "["   => (),
+                    _     => break
+                }
+            }
+            
             params.push(self.get_type()?);
             self.skip_whitespace();
         }
@@ -81,15 +90,11 @@ impl Parser {
         match self.traveler.current_content().as_str() {
             "mut" => {
                 self.traveler.next();
-                
                 self.skip_whitespace();
 
-                let a = self.traveler.expect(TokenType::Identifier)?;
-                self.traveler.next();
-                
-                Ok(Type::Mut(Some(Rc::new(Type::Identifier(a)))))
+                Ok(Type::Mut(Some(Rc::new(self.get_type()?))))
             },
-            
+
             "fun" => self.get_fun_type(),
 
             "["   => {
@@ -306,7 +311,7 @@ impl Parser {
                         Ok(a)
                     }
                 }
-                
+
                 "[" => {
                     self.traveler.next();
                     self.skip_whitespace();
@@ -452,13 +457,25 @@ impl Parser {
                 "unless" => Ok(Expression::Unless(Rc::new(Unless { base: self.if_pattern()? } ))),
                 "new"    => Ok(Expression::Initialization(Rc::new(self.initialization()?))),
                 
+                "extern" => {
+                    self.traveler.next();
+                    self.skip_whitespace();
+
+                    let position = self.traveler.current().position;
+                    let a        = Expression::Identifier(self.traveler.expect(TokenType::Identifier)?, position);
+                    self.traveler.next();
+                    self.skip_whitespace();
+
+                    Ok(Expression::Extern(Rc::new(self.try_index(a, true)?)))
+                }
+                
                 "struct" => {
                     self.traveler.next();
                     self.skip_whitespace();
 
                     Ok(Expression::Struct(self.block_of(&Self::type_definition_, ("{", "}"))?))
                 },
-                
+
                 "fun"      => Ok(Expression::Fun(Rc::new(self.function(false)?))),
                 "function" => Ok(Expression::FunctionMatch(Rc::new(self.function_match(false)?))),
 
@@ -1102,6 +1119,22 @@ impl Parser {
                 "interface" => Ok(Statement::Interface(self.interface()?)),
                 "implement" => Ok(Statement::Implementation(self.implementation()?)),
                 "import"    => Ok(Statement::Import(self.import()?)),
+                "extern"    => {
+                    self.traveler.next();
+                    self.skip_whitespace();
+                    
+                    match self.traveler.current_content().as_str() {
+                        c @ "function"  |
+                        c @ "fun"       |
+                        c @ "if"        |
+                        c @ "unless"    |
+                        c @ "match"     |
+                        c @ "interface" |
+                        c @ "implement" |
+                        c @ "extern"    => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad external statement: {}", c))),
+                        _               => Ok(Statement::Extern(Rc::new(self.statement()?))),
+                    }
+                }
                 "return"    => {
                     self.traveler.next();
 
