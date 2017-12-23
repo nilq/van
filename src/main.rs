@@ -5,9 +5,10 @@ use van::*;
 
 fn main() {
     let source = r#"
-love.thing := 10
-love.thing: number = 10
-mut love.thing: string = r"hey\n"
+love.keypressed := function {
+    | "space" -> "jump" |> print
+    | "left"  -> "walk" |> print
+}
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

@@ -19,6 +19,8 @@ pub enum Expression {
     Unless(Rc<Unless>),
     Struct(Vec<TypeDefinition>),
     Initialization(Rc<Initialization>),
+    FunctionMatch(Rc<FunctionMatch>),
+    Fun(Rc<Fun>),
     EOF,
 }
 
@@ -107,14 +109,14 @@ pub enum Function {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionMatch {
     pub t:    Option<Type>,
-    pub name: String,
+    pub name: Option<Expression>,
     pub arms: Vec<MatchArm>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fun {
     pub t:      Option<Type>,
-    pub name:   Expression,
+    pub name:   Option<Expression>,
     pub params: Vec<TypeDefinition>,
     pub body:   Vec<Statement>,
 }

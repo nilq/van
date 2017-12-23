@@ -161,14 +161,16 @@ impl Parser {
     fn match_pattern(&mut self) -> Result<MatchPattern, Response> {
         self.traveler.next();
 
-        self.skip_whitespace_eol();
+        self.skip_whitespace();
 
         let matching = Rc::new(self.expression()?);
 
-        self.skip_whitespace_eol();
+        self.skip_whitespace();
 
         if self.traveler.current_content() == "{" {
             let arms = self.block_of(&Self::match_arm, ("{", "}"))?;
+            
+            println!("here m: {:?}", self.traveler.current_content());
 
             Ok(MatchPattern {
                 matching,
@@ -327,13 +329,19 @@ impl Parser {
                     }
                 }
 
-                _   => Ok(a),
+                _ => if call {
+                    println!("here?: {}", self.traveler.current_content());
+                    self.skip_whitespace();
+                    Ok(self.try_call(a)?)
+                } else {
+                    Ok(a)
+                },
             },
             
             _ => Ok(a),
         }
     }
-    
+
     fn try_call(&mut self, a: Expression) -> Result<Expression, Response> {
         match self.traveler.current().token_type {
             TokenType::Int        |
@@ -450,6 +458,9 @@ impl Parser {
 
                     Ok(Expression::Struct(self.block_of(&Self::type_definition_, ("{", "}"))?))
                 },
+                
+                "fun"      => Ok(Expression::Fun(Rc::new(self.function(false)?))),
+                "function" => Ok(Expression::FunctionMatch(Rc::new(self.function_match(false)?))),
 
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad keyword: {:?}", c))),
             }
@@ -581,12 +592,21 @@ impl Parser {
         }
     }
 
-    fn function_match(&mut self) -> Result<FunctionMatch, Response> {
+    fn function_match(&mut self, named: bool) -> Result<FunctionMatch, Response> {
         self.traveler.next();
-        self.skip_whitespace_eol();
-
-        let name = self.traveler.current_content().clone();
+        self.skip_whitespace();
         
+        let name = if named {
+            let position = self.traveler.current().position;
+            let a        = self.traveler.expect(TokenType::Identifier)?;
+            self.traveler.next();
+            self.skip_whitespace();
+
+            Some(self.try_index(Expression::Identifier(a, position), false)?)
+        } else {
+            None
+        };
+
         self.traveler.next();
         self.skip_whitespace_eol();
 
@@ -595,7 +615,7 @@ impl Parser {
         if self.traveler.current_content() == "->" {
             self.traveler.next();
             self.skip_whitespace_eol();
-            
+
             t = Some(self.get_type()?);
             self.skip_whitespace_eol();
         }
@@ -654,16 +674,20 @@ impl Parser {
         }
     }
 
-    fn function(&mut self) -> Result<Fun, Response> {
+    fn function(&mut self, named: bool) -> Result<Fun, Response> {
         self.traveler.next();
         self.skip_whitespace();
+        
+        let name = if named {
+            let position = self.traveler.current().position;
+            let a        = self.traveler.expect(TokenType::Identifier)?;
+            self.traveler.next();
+            self.skip_whitespace();
 
-        let position = self.traveler.current().position;
-        let a        = self.traveler.expect(TokenType::Identifier)?;
-        self.traveler.next();
-        self.skip_whitespace();
-
-        let name = self.try_index(Expression::Identifier(a, position), false)?;
+            Some(self.try_index(Expression::Identifier(a, position), false)?)
+        } else {
+            None
+        };
 
         let mut params = Vec::new();
 
@@ -748,8 +772,8 @@ impl Parser {
     fn function_(self: &mut Self) -> Result<Option<Function>, Response> {
         self.skip_whitespace_eol();
         match self.traveler.current_content().as_str() {
-            "fun"      => Ok(Some(Function::Fun(self.function()?))),
-            "function" => Ok(Some(Function::Match(self.function_match()?))),
+            "fun"      => Ok(Some(Function::Fun(self.function(true)?))),
+            "function" => Ok(Some(Function::Match(self.function_match(true)?))),
             _          => Ok(None),
         }
     }
@@ -1057,12 +1081,20 @@ impl Parser {
                     if def.t.is_some() {
                         def.t = Some(Type::Mut(Some(Rc::new(def.t.unwrap()))));
                     }
-                    
+
+                    if self.traveler.remaining() > 1 {
+                        if !self.traveler.current_content().chars().any(|x| x == '\n') {
+                            return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, self.traveler.current_content().len())), format!("expected newline, found: {:?}", self.traveler.current_content())))
+                        } else {
+                            self.traveler.next();
+                        }
+                    }
+
                     Ok(Statement::Definition(def))
                 }
 
-                "function"  => Ok(Statement::FunctionMatch(self.function_match()?)),
-                "fun"       => Ok(Statement::Fun(self.function()?)),
+                "function"  => Ok(Statement::FunctionMatch(self.function_match(true)?)),
+                "fun"       => Ok(Statement::Fun(self.function(true)?)),
                 "struct"    => Ok(Statement::Struct(self.structure()?)),
                 "if"        => Ok(Statement::If(self.if_pattern()?)),
                 "unless"    => Ok(Statement::Unless(Unless { base: self.if_pattern()? } )),
