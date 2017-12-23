@@ -4,6 +4,7 @@ use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
+    Block(Vec<Statement>),
     Number(f64),
     Bool(bool),
     Str(String),

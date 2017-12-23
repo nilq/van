@@ -5,6 +5,18 @@ use van::*;
 
 fn main() {
     let source = r#"
+c: number = 10
+
+a: bool = {
+    b := c + 10
+
+    if b % 2 == 0 {
+        true
+    } else {
+        false
+    }
+}
+
 fun love ["update"] dt: number {
     dt |> print
 }

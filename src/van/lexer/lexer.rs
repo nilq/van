@@ -24,7 +24,7 @@ pub fn make_lexer(data: Vec<char>) -> Lexer {
     lexer.matchers_mut().push(Rc::new(eol_matcher));
 
     let operator_matcher = ConstantStringMatcher::new(TokenType::Operator, &[
-        "++", "+", "-", "*", "/", "^^", "^", ">=", "<=", "==", "!=", "<|", "|>", "<", ">",
+        "++", "+", "-", "*", "/", "^^", "^", ">=", "<=", "==", "!=", "<|", "|>", "<", ">", "%",
     ]);
     
     lexer.matchers_mut().push(Rc::new(operator_matcher));

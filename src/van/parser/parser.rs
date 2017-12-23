@@ -452,16 +452,20 @@ impl Parser {
             }
 
             TokenType::Symbol => match self.traveler.current_content().as_str() {
-                "("   => {
+                "(" => {
                     let a = self.block_of(&Self::expression_, ("(", ")"))?.get(0).unwrap().clone();
                     self.skip_whitespace();
 
                     let a = self.try_call(a)?;
                     self.try_index(a, true)
                 },
-                "["   => {
+                "[" => {
                     let a = self.try_list(("[", "]"))?.unwrap();
                     self.try_index(Expression::Array(a), true)
+                }
+                "{" => {
+                    let a = Expression::Block(self.block_of(&Self::statement_, ("{", "}"))?);
+                    self.try_index(a, true)
                 }
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad symbol: {:?}", c))),
             },
