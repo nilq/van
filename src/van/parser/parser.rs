@@ -280,7 +280,7 @@ impl Parser {
         }
     }
 
-    fn try_index(&mut self, a: Expression) -> Result<Expression, Response> {
+    fn try_index(&mut self, a: Expression, call: bool) -> Result<Expression, Response> {
         match self.traveler.current().token_type {
             TokenType::Symbol => match self.traveler.current_content().as_str() {
                 "." => {
@@ -292,7 +292,14 @@ impl Parser {
 
                     let position = self.traveler.current().position;
 
-                    Ok(self.try_index(Expression::Index(Index {id: Rc::new(a), index, position}))?)
+                    let a = self.try_index(Expression::Index(Index {id: Rc::new(a), index, position}), call)?;
+
+                    if call {
+                        self.skip_whitespace();
+                        Ok(self.try_call(a)?)
+                    } else {
+                        Ok(a)
+                    }
                 }
                 
                 "[" => {
@@ -306,12 +313,15 @@ impl Parser {
                     self.traveler.next();
 
                     let position = self.traveler.current().position;
-                    
-                    let b = self.try_index(Expression::Index(Index {id: Rc::new(a), index, position}))?;
 
-                    self.skip_whitespace();
-                    println!("{:?}", self.traveler.current_content());
-                    Ok(self.try_call(b)?)
+                    let a = self.try_index(Expression::Index(Index {id: Rc::new(a), index, position}), call)?;
+
+                    if call {
+                        self.skip_whitespace();
+                        Ok(self.try_call(a)?)
+                    } else {
+                        Ok(a)
+                    }
                 }
 
                 _   => Ok(a),
@@ -422,7 +432,7 @@ impl Parser {
                 self.skip_whitespace();
 
                 let a = self.try_call(a)?;
-                self.try_index(a)
+                self.try_index(a, true)
             },
 
             TokenType::Keyword => match self.traveler.current_content().as_str() {
@@ -447,11 +457,11 @@ impl Parser {
                     self.skip_whitespace();
 
                     let a = self.try_call(a)?;
-                    self.try_index(a)
+                    self.try_index(a, true)
                 },
                 "["   => {
                     let a = self.try_list(("[", "]"))?.unwrap();
-                    self.try_index(Expression::Array(a))
+                    self.try_index(Expression::Array(a), true)
                 }
                 ref c => Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, c.len())), format!("bad symbol: {:?}", c))),
             },
@@ -641,7 +651,13 @@ impl Parser {
         self.traveler.next();
         self.skip_whitespace_eol();
 
-        let name = self.traveler.current_content().clone();
+        let position = self.traveler.current().position;
+        let a        = self.traveler.expect(TokenType::Identifier)?;
+        self.traveler.next();
+        self.skip_whitespace();
+
+        let name = self.try_index(Expression::Identifier(a, position), false)?;
+
         self.traveler.next();
         self.skip_whitespace_eol();
 
@@ -779,7 +795,7 @@ impl Parser {
         let a = Expression::Identifier(self.traveler.expect(TokenType::Identifier)?, self.traveler.current().position);
 
         self.traveler.next();
-        let from = self.try_index(a)?;
+        let from = self.try_index(a, false)?;
 
         self.skip_whitespace();
         
@@ -964,7 +980,7 @@ impl Parser {
                 let position = self.traveler.current().position;
                 
                 let b = if self.traveler.current_content() == "." {
-                    let a = self.try_index(Expression::Identifier(a, position))?;
+                    let a = self.try_index(Expression::Identifier(a, position), false)?;
                     
                     self.skip_whitespace();
 

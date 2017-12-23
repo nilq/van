@@ -113,7 +113,7 @@ pub struct FunctionMatch {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fun {
     pub t:      Option<Type>,
-    pub name:   String,
+    pub name:   Expression,
     pub params: Vec<Definition>,
     pub body:   Vec<Statement>,
 }

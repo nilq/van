@@ -5,39 +5,8 @@ use van::*;
 
 fn main() {
     let source = r#"
-interface Movable {
-    translate: fun float float
-    move:      fun float float
-}    
-
-struct Vector {
-    x: float
-    y: float
-}
-
-implement Vector as Movable {
-    fun translate self: mut Vector x: float y: float {
-        self.x = self.x + x
-        self.y = self.y + y
-    }
-    
-    fun move self: mut Vector x: float y: float {
-        self.x = x
-        self.y = y
-    }
-}
-
-struct Mouse {
-    pos: Vector
-}
-
-implement Mouse {
-    fun at x: float y: float -> Mouse {
-        new {
-            x = x
-            y = y
-        }
-    }
+fun love ["update"] dt: number {
+    dt |> print
 }
     "#;
 
