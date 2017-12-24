@@ -737,7 +737,10 @@ impl Parser {
 
                 "{" => break,
 
-                _ => params.push(self.type_definition()?),
+                _ => {
+                    params.push(self.type_definition()?);
+                    self.skip_whitespace()
+                }
             }
         }
 

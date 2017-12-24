@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub struct SymTab {
-    parent: Option<Rc<SymTab>>,
-    names:  RefCell<HashMap<String, usize>>,
+    pub parent: Option<Rc<SymTab>>,
+    pub names:  RefCell<HashMap<String, usize>>,
+    pub externs: Vec<String>,
 }
 
 impl SymTab {
@@ -18,15 +19,17 @@ impl SymTab {
         }
 
         SymTab {
-            parent: Some(parent),
-            names:  RefCell::new(hash_names),
+            parent:  Some(parent),
+            names:   RefCell::new(hash_names),
+            externs: Vec::new(),
         }
     }
 
     pub fn new_global() -> SymTab {
         SymTab {
-            parent: None,
-            names:  RefCell::new(HashMap::new()),
+            parent:  None,
+            names:   RefCell::new(HashMap::new()),
+            externs: Vec::new(),
         }
     }
 

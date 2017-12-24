@@ -5,7 +5,10 @@ use van::*;
 
 fn main() {
     let source = r#"
-keypressed: mut (fun string bool) = extern love.draw
+fib : fun number -> number
+fib = fun b: number -> number {
+    return 10
+}
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

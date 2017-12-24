@@ -4,16 +4,20 @@ use std::fmt;
 
 use super::*;
 
+use std::collections::HashMap;
+
 pub struct TypeTab {
-    parent: Option<Rc<TypeTab>>,
-    types: RefCell<Vec<Type>>,
+    pub parent: Option<Rc<TypeTab>>,
+    pub types:  RefCell<Vec<Type>>,
+    pub sauce:  HashMap<String, Type>, // the type structures in scope
 }
 
 impl TypeTab {
-    pub fn new(parent: Rc<TypeTab>, types: &Vec<Type>) -> TypeTab {
+    pub fn new(parent: Rc<TypeTab>, types: &Vec<Type>, sauce: HashMap<String, Type>) -> TypeTab {
         TypeTab {
             parent: Some(parent),
-            types: RefCell::new(types.clone()),
+            types:  RefCell::new(types.clone()),
+            sauce,
         }
     }
 
@@ -21,18 +25,7 @@ impl TypeTab {
         TypeTab {
             parent: None,
             types: RefCell::new(Vec::new()),
-        }
-    }
-
-    pub fn new_partial(parent: Rc<TypeTab>, types: &[Type], size: usize) -> TypeTab {
-        let mut stack = types.to_vec();
-        for _ in 0 .. size - types.len() {
-            stack.push(Type::Undefined)
-        }
-
-        TypeTab {
-            parent: Some(parent),
-            types: RefCell::new(stack),
+            sauce:  HashMap::new(),
         }
     }
 
