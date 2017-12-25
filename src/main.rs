@@ -8,13 +8,7 @@ fn main() {
 outer: number = 10
 
 fun foo -> number {
-    fun foo_inner -> number {
-        inner_inner: number = outer
-        inner_inner
-    }
-    
-    inner: number = outer
-    inner
+    return outer
 }
     "#;
 

@@ -70,6 +70,19 @@ impl Visitor {
                                     return Err(Response::error(None, format!("[location] mismatching return types of block")))
                                 }
                             }
+                            Statement::Return(ref expr) => {
+                                if !flag {
+                                    block_t = if let &Some(ref expr) = expr {
+                                        self.type_expression(expr)?
+                                    } else {
+                                        Type::Identifier("nil".to_string())
+                                    };
+
+                                    flag = true
+                                } else {
+                                    return Err(Response::error(None, format!("[location] mismatching return types of block")))
+                                }
+                            },
                             _ => {
                                 if !flag {
                                     block_t = Type::Identifier("nil".to_string());
