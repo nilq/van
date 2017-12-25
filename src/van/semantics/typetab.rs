@@ -4,20 +4,17 @@ use std::fmt;
 
 use super::*;
 
-use std::collections::HashMap;
-
+#[derive(Clone)]
 pub struct TypeTab {
     pub parent: Option<Rc<TypeTab>>,
     pub types:  RefCell<Vec<Type>>,
-    pub sauce:  HashMap<String, Type>, // the type structures in scope
 }
 
 impl TypeTab {
-    pub fn new(parent: Rc<TypeTab>, types: &Vec<Type>, sauce: HashMap<String, Type>) -> TypeTab {
+    pub fn new(parent: Rc<TypeTab>, types: &Vec<Type>) -> TypeTab {
         TypeTab {
             parent: Some(parent),
             types:  RefCell::new(types.clone()),
-            sauce,
         }
     }
 
@@ -25,7 +22,6 @@ impl TypeTab {
         TypeTab {
             parent: None,
             types: RefCell::new(Vec::new()),
-            sauce:  HashMap::new(),
         }
     }
 
@@ -37,7 +33,7 @@ impl TypeTab {
                     *v = t;
                     Ok(())
                 },
-                None => Err(Response::error(None, format!("invalid type env index: {}", env_index)))
+                None => Err(Response::error(None, format!("invalid type env index: {}", env_index))),
             }
         } else {
             match self.parent {

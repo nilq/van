@@ -5,9 +5,16 @@ use van::*;
 
 fn main() {
     let source = r#"
-function foo {
-    | 0 -> 0
-    | 1 -> 1
+outer: number = 10
+
+fun foo -> number {
+    fun foo_inner -> number {
+        inner_inner: number = outer
+        inner_inner
+    }
+    
+    inner: number = outer
+    inner
 }
     "#;
 

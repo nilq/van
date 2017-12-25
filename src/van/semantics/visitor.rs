@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use super::*;
 
 pub struct Visitor {
@@ -12,13 +14,30 @@ impl Visitor {
             symtab:  SymTab::new_global(),
         }
     }
+    
+    pub fn from(symtab: SymTab, typetab: TypeTab) -> Visitor {
+        Visitor {
+            symtab,
+            typetab,
+        }
+    }
 
     pub fn visit_expression(&mut self, e: &Expression) -> Result<(), Response> {
         match *e {
-            Expression::Identifier(ref n, ref position) => match self.symtab.get_name(&*n) {
-                Some(_) => Ok(()),
-                None    => Err(Response::error(Some(ErrorLocation::new(*position, n.len())), format!("unexpected use of: {}", n)))
+            Expression::Identifier(ref n, ref position) => {
+                match self.symtab.get_name(&*n) {
+                    Some(_) => Ok(()),
+                    None    => Err(Response::error(Some(ErrorLocation::new(*position, n.len())), format!("unexpected use of: {}", n)))
+                }
             },
+            
+            Expression::Block(ref statements) => {
+                for statement in statements {
+                    self.visit_statement(statement)?
+                }
+
+                Ok(())
+            }
 
             _ => Ok(())
         }
@@ -31,8 +50,59 @@ impl Visitor {
             Expression::Bool(_)   => Ok(Type::Identifier("boolean".to_string())),
             Expression::Identifier(ref n, ref position) => match self.symtab.get_name(&*n) {
                 Some((i, env_index)) => self.typetab.get_type(i, env_index),
-                None                 => Err(Response::error(Some(ErrorLocation::new(*position, n.len())), format!("unexpected use of: {}", n)))
+                None                 => Err(Response::error(Some(ErrorLocation::new(*position, n.len())), format!("undefined type of: {}", n)))
             },
+            
+            Expression::Block(ref statements) => {
+                let mut block_t = Type::Undefined;
+                let mut flag    = false;
+                
+                let mut acc     = 1;
+
+                for statement in statements {
+                    if acc == statements.len() {
+                        match *statement {
+                            Statement::Expression(ref expr) => {
+                                if !flag {
+                                    block_t = self.type_expression(expr)?;
+                                    flag = true
+                                } else {
+                                    return Err(Response::error(None, format!("[location] mismatching return types of block")))
+                                }
+                            }
+                            _ => {
+                                if !flag {
+                                    block_t = Type::Identifier("nil".to_string());
+                                    flag = true
+                                }
+                            }
+                        }
+                    } else {
+                        match *statement {
+                            Statement::Return(ref expr) => {
+                                if !flag {
+                                    block_t = if let &Some(ref expr) = expr {
+                                        self.type_expression(expr)?
+                                    } else {
+                                        Type::Identifier("nil".to_string())
+                                    };
+
+                                    flag = true
+                                } else {
+                                    return Err(Response::error(None, format!("[location] mismatching return types of block")))
+                                }
+                            },
+
+                            _ => (),
+                        }
+                    }
+                    
+                    acc += 1
+                }
+                
+                Ok(block_t)
+            },
+
             _ => Ok(Type::Undefined),
         }
     }
@@ -92,22 +162,28 @@ impl Visitor {
             Statement::FunctionMatch(FunctionMatch {ref t, ref name, ref arms}) => {
                 match *name.as_ref().unwrap() {
                     Expression::Identifier(ref name, ref position) => match self.symtab.get_name(&*name) {
-                        Some(_) => return Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("name already in use: {}", name))),
+                        // [todo] check if function and handle function variants
+                        Some(_) => Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("name already in use: {}", name))),
                         None    => {
                             let index = self.symtab.add_name(&name);
                             if index >= self.typetab.size() {
                                 self.typetab.grow()
                             }
 
+                            let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &[]);
+                            let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &Vec::new());
+
+                            let mut local_visitor = Visitor::from(local_symtab, local_typetab);
+
                             let mut arm_t = Type::Undefined;
                             let mut flag  = false;
 
                             for arm in arms {                                
                                 if !flag {
-                                    arm_t = self.type_arm(arm)?;
+                                    arm_t = local_visitor.type_arm(arm)?;
                                     flag = true
                                 } else {
-                                    if arm_t != self.type_arm(&arm)? {
+                                    if arm_t != local_visitor.type_arm(&arm)? {
                                         return Err(Response::error(None, format!("[error location] mismatching arms of match function: {}", name)))
                                     }
                                 }
@@ -115,19 +191,74 @@ impl Visitor {
 
                             if let &Some(ref t) = t {
                                 if *t != arm_t {
-                                    Err(Response::error(None, format!("[error location] mismatching return types of function: {}", name)))
+                                    Err(Response::error(None, format!("[location] mismatching return types of function: {}", name)))
                                 } else {
-                                    self.typetab.set_type(index, 0, t.clone())
+                                    local_visitor.typetab.set_type(index, 0, t.clone())
                                 }
                             } else {
-                                self.typetab.set_type(index, 0, arm_t.clone())
+                                local_visitor.typetab.set_type(index, 0, arm_t.clone())
                             }
                         },
                     },
                     
-                    _ => Ok(())
+                    _ => {
+                        Response::warning(None, format!("potential unsafe match function")).display(None);
+                        Ok(())
+                    }
                 }
-            }
+            },
+            Statement::Fun(Fun {ref t, ref name, ref params, ref body}) => {
+                match *name.as_ref().unwrap() {
+                    Expression::Identifier(ref name, ref position) => match self.symtab.get_name(&*name) {
+                        // [todo] check if function and handle function variants
+                        Some(_) => Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("name already in use: {}", name))),
+                        None    => {
+                            let index = self.symtab.add_name(&name);
+                            if index >= self.typetab.size() {
+                                self.typetab.grow()
+                            }
+                            
+                            self.typetab.set_type(index, 0, Type::Undefined)?;
+                            
+                            let mut param_names = Vec::new();
+                            let mut param_types = Vec::new();
+
+                            for param in params {
+                                param_names.push(param.name.clone());
+                                param_types.push(param.t.clone())
+                            }
+
+                            let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &param_names.as_slice());
+                            let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &param_types);
+
+                            let mut local_visitor = Visitor::from(local_symtab, local_typetab);
+                            
+                            let body_expression = Expression::Block(body.clone());
+                            
+                            local_visitor.visit_expression(&body_expression)?;
+
+                            let body_t = local_visitor.type_expression(&body_expression)?;
+
+                            if let &Some(ref t) = t {
+                                if *t != body_t {
+                                    Err(Response::error(None, format!("[location] mismatching return types of fun: {}", name)))
+                                } else {
+                                    local_visitor.typetab.set_type(index, 1, t.clone())?;
+                                    self.typetab.set_type(index, 0, t.clone())
+                                }
+                            } else {
+                                local_visitor.typetab.set_type(index, 1, body_t.clone())?;
+                                self.typetab.set_type(index, 0, body_t.clone())
+                            }
+                        },
+                    },
+
+                    _ => {
+                        Response::warning(None, format!("potential unsafe function")).display(None);
+                        Ok(())
+                    }
+                }
+            },
             _ => Ok(())
         }
     }

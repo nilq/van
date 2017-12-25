@@ -4,24 +4,23 @@ use std::collections::HashMap;
 
 use std::fmt;
 
+#[derive(Clone)]
 pub struct SymTab {
     pub parent:  Option<Rc<SymTab>>,
     pub names:   RefCell<HashMap<String, usize>>,
-    pub externs: Vec<String>,
 }
 
 impl SymTab {
-    pub fn new(parent: Rc<SymTab>, names: &[Rc<String>]) -> SymTab {
+    pub fn new(parent: Rc<SymTab>, names: &[String]) -> SymTab {
         let mut hash_names = HashMap::new();
 
         for (i, name) in names.iter().enumerate() {
-            hash_names.insert((**name).clone(), i);
+            hash_names.insert((*name).clone(), i);
         }
 
         SymTab {
             parent:  Some(parent),
             names:   RefCell::new(hash_names),
-            externs: Vec::new(),
         }
     }
 
@@ -29,7 +28,6 @@ impl SymTab {
         SymTab {
             parent:  None,
             names:   RefCell::new(HashMap::new()),
-            externs: Vec::new(),
         }
     }
 
