@@ -5,10 +5,7 @@ use van::*;
 
 fn main() {
     let source = r#"
-fib : fun number -> number
-fib = fun b: number -> number {
-    return 10
-}
+b: string = "hey"
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());
@@ -16,7 +13,18 @@ fib = fun b: number -> number {
     let mut parser = Parser::new(traveler);
 
     match parser.parse() {
-        Ok(ast) => println!("{:#?}", ast),
-        Err(e)  => e.display(&source.lines().collect())
+        Ok(ast) => {
+            println!("{:#?}", ast);
+            
+            let mut visitor = Visitor::new();
+            
+            for statement in ast {
+                match visitor.visit_statement(&statement) {
+                    Ok(()) => (),
+                    Err(e) => e.display(Some(&source.lines().collect()))
+                }
+            }
+        }
+        Err(e) => e.display(Some(&source.lines().collect()))
     }
 }

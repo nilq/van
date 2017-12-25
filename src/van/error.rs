@@ -10,14 +10,19 @@ impl ErrorLocation {
 }
 
 pub enum Response {
-    Error(Option<ErrorLocation>,      String),
-    Note(Option<ErrorLocation>,       String),
+    Error(Option<ErrorLocation>,   String),
+    Note(Option<ErrorLocation>,    String),
+    Warning(Option<ErrorLocation>, String),
     Group(Vec<Response>),
 }
 
 impl Response {
     pub fn error(location: Option<ErrorLocation>, message: String) -> Response {
         Response::Error(location, message)
+    }
+    
+    pub fn warning(location: Option<ErrorLocation>, message: String) -> Response {
+        Response::Warning(location, message)
     }
 
     pub fn note(location: Option<ErrorLocation>, message: String) -> Response {
@@ -28,35 +33,39 @@ impl Response {
         Response::Group(responses)
     }
 
-    pub fn display(&self, lines: &Vec<&str>) {
+    pub fn display(&self, lines: Option<&Vec<&str>>) {
         match *self {
             Response::Group(ref responses) => for response in responses {
                 response.display(lines)
             },
 
             Response::Error(ref location, ref message) |
+            Response::Warning(ref location, ref message) |
             Response::Note(ref location, ref message)  => {
                 let (color, message_t) = match *self {
                     Response::Error(..)      => ("red", "error"),
                     Response::Note(..)       => ("green", "note"),
+                    Response::Warning(..)    => ("yellow", "warning"),
                     _                        => unreachable!(),
                 };
 
                 let message = format!("{}{}{}\n", message_t.color(color).bold(), ": ".white().bold(), message.bold());
 
-                if let &Some(ref pos) = location {
-                    let line = lines.get(pos.0.line);
+                if lines.is_some() {
+                    if let &Some(ref pos) = location {
+                        let line = lines.unwrap().get(pos.0.line);
 
-                    if let Some(line) = line {
-                        let prefix      = format!("{:5} |", pos.0.line + 1).blue().bold();
-                        let source_line = format!("{} {}\n", prefix, line);
-                        let indicator   = format!(
-                            "{:offset$}{:^<count$}", " ", " ".color(color).bold(),
-                            offset = prefix.len() + pos.0.col - 1,
-                            count  = pos.1 + 1,
-                        );
-                        
-                        println!("{}{}{}{}\n", message, "      |\n".blue().bold(), source_line, indicator)
+                        if let Some(line) = line {
+                            let prefix      = format!("{:5} |", pos.0.line + 1).blue().bold();
+                            let source_line = format!("{} {}\n", prefix, line);
+                            let indicator   = format!(
+                                "{:offset$}{:^<count$}", " ", " ".color(color).bold(),
+                                offset = prefix.len() + pos.0.col - 2,
+                                count  = pos.1 + 1,
+                            );
+                            
+                            println!("{}{}{}{}\n", message, "      |\n".blue().bold(), source_line, indicator)
+                        }
                     }
                 } else {
                     println!("{}", message);

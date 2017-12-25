@@ -348,7 +348,6 @@ impl Parser {
                 }
 
                 _ => if call {
-                    println!("here?: {}", self.traveler.current_content());
                     self.skip_whitespace();
                     Ok(self.try_call(a)?)
                 } else {
@@ -589,8 +588,10 @@ impl Parser {
         })
     }
 
-    fn definition(&mut self, name: Expression) -> Result<Definition, Response> {
-        self.skip_whitespace_eol();
+    fn definition(&mut self, name: String) -> Result<Definition, Response> {
+        let position = self.traveler.current().position;
+
+        self.skip_whitespace();
         
         self.traveler.expect_content(":")?;
         self.traveler.next();
@@ -612,12 +613,12 @@ impl Parser {
             let right = Some(Rc::new(self.expression()?));
             
             Ok(Definition {
-                t, name, right, position: self.traveler.current().position
+                t, name, right, position,
             })
 
         } else {
             Ok(Definition {
-                t, name, right: None, position: self.traveler.current().position
+                t, name, right: None, position,
             })
         }
     }
@@ -1033,18 +1034,22 @@ impl Parser {
                 self.skip_whitespace();
                 
                 let position = self.traveler.current().position;
+                
+                let index_flag;
 
-                let a = if self.traveler.current_content() == "." {
-                    let b = self.try_index(Expression::Identifier(a, position), false)?;
+                let a2 = if self.traveler.current_content() == "." {
+                    index_flag = true;
+                    let b = self.try_index(Expression::Identifier(a.clone(), position), false)?;
                     self.skip_whitespace();
                     b
                 } else {
-                    Expression::Identifier(a, self.traveler.current().position)
+                    index_flag = false;
+                    Expression::Identifier(a.clone(), self.traveler.current().position)
                 };
-                
+
                 let b = if self.traveler.current_content() == "=" {
                     
-                    let c = Statement::Assignment(self.assignment(Rc::new(a))?);
+                    let c = Statement::Assignment(self.assignment(Rc::new(a2))?);
                     if self.traveler.remaining() > 1 {
                         if !self.traveler.current_content().chars().any(|x| x == '\n') {
                             return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, self.traveler.current_content().len())), format!("expected newline, found: {:?}", self.traveler.current_content())))
@@ -1055,21 +1060,7 @@ impl Parser {
                     
                     c
 
-                } else if self.traveler.current_content() == "=" {
-                    let c = Statement::Assignment(self.assignment(Rc::new(a))?);
-
-                    if self.traveler.remaining() > 1 {
-                        // weird
-                        if !self.traveler.current_content().chars().any(|x| x == '\n') {
-                            return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, self.traveler.current_content().len())), format!("expected newline, found: {:?}", self.traveler.current_content())))
-                        } else {
-                            self.traveler.next();
-                        }
-                    }
-                    
-                    c
-
-                } else if self.traveler.current_content() == ":" {
+                } else if self.traveler.current_content() == ":" && !index_flag {
                     let c = self.definition(a)?;
                     
                     if self.traveler.remaining() > 1 {
@@ -1098,16 +1089,6 @@ impl Parser {
                     let a = self.traveler.current_content().clone();
                     self.traveler.next();
                     self.skip_whitespace();
-
-                    let position = self.traveler.current().position;
-                    
-                    let a = if self.traveler.current_content() == "." {
-                        let b = self.try_index(Expression::Identifier(a, position), false)?;
-                        self.skip_whitespace();
-                        b
-                    } else {
-                        Expression::Identifier(a, self.traveler.current().position)
-                    };
 
                     let mut def = self.definition(a)?;
 

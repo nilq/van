@@ -126,7 +126,7 @@ pub struct Fun {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition {
     pub t:     Option<Type>,
-    pub name:  Expression,
+    pub name:  String,
     pub right: Option<Rc<Expression>>,
     pub position: TokenPosition,
 }
