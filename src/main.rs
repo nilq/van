@@ -5,7 +5,10 @@ use van::*;
 
 fn main() {
     let source = r#"
-b: string = "hey"
+function foo {
+    | 0 -> 0
+    | 1 -> 1
+}
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());
@@ -15,7 +18,7 @@ b: string = "hey"
     match parser.parse() {
         Ok(ast) => {
             println!("{:#?}", ast);
-            
+
             let mut visitor = Visitor::new();
             
             for statement in ast {

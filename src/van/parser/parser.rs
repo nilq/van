@@ -638,9 +638,6 @@ impl Parser {
             None
         };
 
-        self.traveler.next();
-        self.skip_whitespace_eol();
-
         let mut t = None;
 
         if self.traveler.current_content() == "->" {
@@ -990,6 +987,25 @@ impl Parser {
         }
     }
 
+    fn while_loop(&mut self) -> Result<While, Response> {
+        self.traveler.expect_content("while")?;
+
+        self.traveler.next();
+        self.skip_whitespace();
+        
+        let condition = self.expression()?;
+        
+        self.skip_whitespace();
+        self.traveler.expect_content("{")?;
+
+        let body = self.block_of(&Self::statement_, ("{", "}"))?;
+
+        Ok(While {
+            condition,
+            body,
+        })
+    }
+
     fn function_type_def_(self: &mut Self) -> Result<Option<TypeDefinition>, Response> {
         if self.traveler.remaining() > 2 {
             let d = self.type_definition()?;
@@ -1050,6 +1066,7 @@ impl Parser {
                 let b = if self.traveler.current_content() == "=" {
                     
                     let c = Statement::Assignment(self.assignment(Rc::new(a2))?);
+                    
                     if self.traveler.remaining() > 1 {
                         if !self.traveler.current_content().chars().any(|x| x == '\n') {
                             return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, self.traveler.current_content().len())), format!("expected newline, found: {:?}", self.traveler.current_content())))
@@ -1116,6 +1133,7 @@ impl Parser {
                 "interface" => Ok(Statement::Interface(self.interface()?)),
                 "implement" => Ok(Statement::Implementation(self.implementation()?)),
                 "import"    => Ok(Statement::Import(self.import()?)),
+                "while"     => Ok(Statement::While(self.while_loop()?)),
                 "extern"    => {
                     self.traveler.next();
                     self.skip_whitespace();

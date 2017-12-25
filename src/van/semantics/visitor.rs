@@ -37,6 +37,10 @@ impl Visitor {
         }
     }
 
+    pub fn type_arm(&mut self, arm: &MatchArm) -> Result<Type, Response> {
+        self.type_expression(&*arm.body)
+    }
+
     pub fn visit_statement(&mut self, s: &Statement) -> Result<(), Response> {
         match *s {
             Statement::Expression(ref e) => self.visit_expression(e),
@@ -85,6 +89,45 @@ impl Visitor {
                     }
                 }
             },
+            Statement::FunctionMatch(FunctionMatch {ref t, ref name, ref arms}) => {
+                match *name.as_ref().unwrap() {
+                    Expression::Identifier(ref name, ref position) => match self.symtab.get_name(&*name) {
+                        Some(_) => return Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("name already in use: {}", name))),
+                        None    => {
+                            let index = self.symtab.add_name(&name);
+                            if index >= self.typetab.size() {
+                                self.typetab.grow()
+                            }
+
+                            let mut arm_t = Type::Undefined;
+                            let mut flag  = false;
+
+                            for arm in arms {                                
+                                if !flag {
+                                    arm_t = self.type_arm(arm)?;
+                                    flag = true
+                                } else {
+                                    if arm_t != self.type_arm(&arm)? {
+                                        return Err(Response::error(None, format!("[error location] mismatching arms of match function: {}", name)))
+                                    }
+                                }
+                            }
+
+                            if let &Some(ref t) = t {
+                                if *t != arm_t {
+                                    Err(Response::error(None, format!("[error location] mismatching return types of function: {}", name)))
+                                } else {
+                                    self.typetab.set_type(index, 0, t.clone())
+                                }
+                            } else {
+                                self.typetab.set_type(index, 0, arm_t.clone())
+                            }
+                        },
+                    },
+                    
+                    _ => Ok(())
+                }
+            }
             _ => Ok(())
         }
     }

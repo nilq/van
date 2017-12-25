@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub struct SymTab {
-    pub parent: Option<Rc<SymTab>>,
-    pub names:  RefCell<HashMap<String, usize>>,
+    pub parent:  Option<Rc<SymTab>>,
+    pub names:   RefCell<HashMap<String, usize>>,
     pub externs: Vec<String>,
 }
 

@@ -1,0 +1,28 @@
+struct Ball {
+    x: number
+    y: number
+}
+
+interface Bouncable {
+    bounce: fun number number -> number
+}
+
+implement Ball as Bouncable {
+    fun bounce a: number b: number -> number {
+        a := 10 + 10
+    }
+}
+
+function fib {
+    | 0 -> 0
+    | 1 -> 1
+    | n -> fib (n - 1) + fib (n - 2) 
+}
+
+fun add a: number b: number -> number {
+    return a + b
+}
+
+add10 := add 10
+
+a: number = fib fib (5 + 5)

@@ -66,9 +66,11 @@ impl Response {
                             
                             println!("{}{}{}{}\n", message, "      |\n".blue().bold(), source_line, indicator)
                         }
+                    } else {
+                        println!("{}", message);
                     }
                 } else {
-                    println!("{}", message);
+                    println!("{}", message)
                 }
             }
         }

@@ -78,13 +78,6 @@ pub struct Initialization {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Arm {
-    pub params:   Vec<Rc<Expression>>,
-    pub body:     Rc<Statement>,
-    pub position: TokenPosition,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Expression(Rc<Expression>),
     Definition(Definition),
@@ -100,6 +93,7 @@ pub enum Statement {
     Return(Option<Expression>),
     Import(Import),
     Extern(Rc<Statement>),
+    While(While),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -142,6 +136,12 @@ pub struct If {
     pub condition: Expression,
     pub body:      Vec<Statement>,
     pub elses:     Option<Vec<(Option<Expression>, Vec<Statement>)>>, // vec<(condition, body)?>
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct While {
+    pub condition: Expression,
+    pub body:      Vec<Statement>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
