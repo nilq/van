@@ -15,6 +15,8 @@ fun foofoo -> mut [number; 5] {
 
 fun barbar -> mut [number; 5] {
     mut bar := [1, 2, 3, 4, 5,]
+    bar[1] = 50
+
     return bar
 }
     "#;

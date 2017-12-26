@@ -1058,7 +1058,7 @@ impl Parser {
                 
                 let index_flag;
 
-                let a2 = if self.traveler.current_content() == "." {
+                let a2 = if self.traveler.current_content() == "." || self.traveler.current_content() == "[" {
                     index_flag = true;
                     let b = self.try_index(Expression::Identifier(a.clone(), position), false)?;
                     self.skip_whitespace();

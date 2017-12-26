@@ -78,7 +78,7 @@ impl Visitor {
                 Ok(Type::Array(Rc::new(array_t), Some(Expression::Number(content.len() as f64))))
             },
 
-            Expression::Index(Index {ref id, ref index, ref position}) => {
+            Expression::Index(Index {ref id, ref position, ..}) => {
                 match *self.type_expression(id)?.unmut().unwrap() {
                     Type::Array(ref t, _) => {
                         Ok((**t).clone())
@@ -211,6 +211,28 @@ impl Visitor {
                             Ok(())
                         }
                     },
+
+                    Expression::Index(Index {ref id, ref index, ref position}) => {
+                        match self.type_expression(id)? {
+                            Type::Mut(ref t) => match **t.as_ref().unwrap() {
+                                Type::Array(ref t, _) => {
+                                    if let Expression::Identifier(ref name, _) = **index {
+                                        Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("trying to index array with identifier: {:?}", name)))
+                                    } else {
+                                        if !self.type_expression(right)?.equals(&t) {
+                                            Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("mismatched types, expected: {:?}", t)))
+                                        } else {
+                                            Ok(())
+                                        }
+                                    }
+                                },
+
+                                _ => Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("can't index non-array: {:?}", id))),
+                            },
+
+                            _ => Err(Response::error(Some(ErrorLocation::new(*position, 1)), "assigning immutable index".to_string())),
+                        }
+                    }
                     
                     _ => {
                         Response::warning(None, format!("potential unsafe assignment")).display(None);
