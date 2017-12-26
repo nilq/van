@@ -78,6 +78,16 @@ impl Visitor {
                 Ok(Type::Array(Rc::new(array_t), Some(Expression::Number(content.len() as f64))))
             },
 
+            Expression::Index(Index {ref id, ref index, ref position}) => {
+                match *self.type_expression(id)?.unmut().unwrap() {
+                    Type::Array(ref t, _) => {
+                        Ok((**t).clone())
+                    },
+                    
+                    _ => Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("can't index non-array: {:?}", id)))
+                }
+            },
+
             Expression::Block(ref statements) => {
                 let mut block_t = Type::Undefined;
                 let mut flag    = false;

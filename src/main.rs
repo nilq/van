@@ -7,16 +7,16 @@ fn main() {
     let source = r#"
 mut foo: [number; 5] = [1, 2, 3, 4, 5,]
 
- bar := [1, 2, 3, 4, 5,]
+a: number = foo[0]
 
 fun foofoo -> mut [number; 5] {
     return foo
 }
 
-fun barbar -> [number; 5] {
+fun barbar -> mut [number; 5] {
+    mut bar := [1, 2, 3, 4, 5,]
     return bar
 }
-
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());
