@@ -327,11 +327,11 @@ impl Parser {
 
                 "[" => {
                     self.traveler.next();
-                    self.skip_whitespace();
+                    self.skip_whitespace_eol();
                     
                     let index = Rc::new(self.expression()?);
                     
-                    self.skip_whitespace();
+                    self.skip_whitespace_eol();
                     self.traveler.expect_content("]")?;
                     self.traveler.next();
 
@@ -521,6 +521,8 @@ impl Parser {
         if self.traveler.current_content() == delimeters.0 {
             self.traveler.next();
         }
+        
+        self.skip_whitespace_eol();
 
         let mut nested = 1;
 
@@ -546,10 +548,13 @@ impl Parser {
                 if is_array {
                     self.traveler.expect_content(",")?;
                     self.traveler.next();
+                    self.skip_whitespace_eol()
                 } else {
                     if self.traveler.current_content() == "," {
                         is_array = true;
                         self.traveler.next();
+                        self.skip_whitespace_eol()
+
                     } else {
                         self.skip_whitespace_eol();
 
@@ -1109,8 +1114,10 @@ impl Parser {
 
                     let mut def = self.definition(a)?;
 
-                    if def.t.is_some() {
-                        def.t = Some(Type::Mut(Some(Rc::new(def.t.unwrap()))));
+                    if let Some(t) = def.t {
+                        def.t = Some(Type::Mut(Some(Rc::new(t))))
+                    } else {
+                        def.t = Some(Type::Mut(None))
                     }
 
                     if self.traveler.remaining() > 1 {

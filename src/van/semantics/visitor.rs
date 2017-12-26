@@ -37,6 +37,13 @@ impl Visitor {
                 }
 
                 Ok(())
+            },
+            
+            Expression::Array(ref content) => {
+                for expression in content {
+                    self.visit_expression(expression)?
+                }
+                Ok(())
             }
 
             _ => Ok(())
@@ -52,7 +59,25 @@ impl Visitor {
                 Some((i, env_index)) => self.typetab.get_type(i, env_index),
                 None                 => Err(Response::error(Some(ErrorLocation::new(*position, n.len())), format!("undefined type of: {}", n)))
             },
-            
+
+            Expression::Array(ref content) => {
+                let mut array_t = Type::Undefined;
+                let mut flag    = false;
+                
+                for expression in content {
+                    if !flag {
+                        array_t = self.type_expression(expression)?;
+                        flag    = true
+                    } else {
+                        if !array_t.equals(&self.type_expression(expression)?) {
+                            return Err(Response::error(None, format!("[location] mismatching array elements")))
+                        }
+                    }
+                }
+
+                Ok(Type::Array(Rc::new(array_t), Some(Expression::Number(content.len() as f64))))
+            },
+
             Expression::Block(ref statements) => {
                 let mut block_t = Type::Undefined;
                 let mut flag    = false;
@@ -137,7 +162,13 @@ impl Visitor {
                     let right_t = self.type_expression(&*right)?;
                     
                     if let &Some(ref t) = t {
-                        if !right_t.equals(t) {
+                        let t = if !t.unmut().is_some() {
+                            Type::Mut(Some(Rc::new(right_t.clone())))
+                        } else {
+                            t.clone()
+                        };
+
+                        if !right_t.equals(&t.unmut().unwrap()) {
                             Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("mismatched types, expected: {:?}", t)))
                         } else {
                             self.typetab.set_type(index, 0, t.clone())

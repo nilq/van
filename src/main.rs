@@ -3,13 +3,20 @@ extern crate colored;
 mod van;
 use van::*;
 
-fn main() {
+fn main() {    
     let source = r#"
-outer: number = 10
+mut foo: [number; 5] = [1, 2, 3, 4, 5,]
 
-fun foo -> number {
-    return outer
+ bar := [1, 2, 3, 4, 5,]
+
+fun foofoo -> mut [number; 5] {
+    return foo
 }
+
+fun barbar -> [number; 5] {
+    return bar
+}
+
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

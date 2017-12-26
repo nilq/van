@@ -229,14 +229,38 @@ pub enum Type {
 
 impl Type {
     pub fn equals(&self, other: &Type) -> bool {
-        let other = if let &Type::Mut(ref r) = other {
-            &r.as_ref().unwrap()
-        } else {
-            other
-        };
+        if let &Type::Mut(ref other) = other {
+            if let &Type::Mut(_) = self {
+                ()
+            } else {
+                return self.equals(&**other.as_ref().unwrap())
+            }
+        }
 
-        match (self, other) {
-            (ref a, ref b) => a == b,
+        match *other {
+            Type::Array(ref other_t, ref other_len) => match *self {
+                Type::Array(ref t, ref len) => {
+                    if !other_len.is_some() {
+                        self == &Type::Array(other_t.clone(), len.clone())
+                    } else if !len.is_some() {
+                        Type::Array(t.clone(), other_len.clone()) == Type::Array(other_t.clone(), other_len.clone())
+                    } else {
+                        self == other
+                    }
+                },
+
+                _ => self == other
+            },
+            
+            _ => self == other
+        }
+    }
+
+    pub fn unmut(&self) -> Option<Rc<Type>> {
+        if let &Type::Mut(ref unmut) = self {
+            unmut.clone()
+        } else {
+            Some(Rc::new(self.clone()))
         }
     }
 }

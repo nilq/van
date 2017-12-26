@@ -1,0 +1,11 @@
+mut foo: [number; 5] = [1, 2, 3, 4, 5,]
+
+mut bar := [1, 2, 3, 4, 5,]
+
+fun foofoo -> mut [number] {
+    return foo
+}
+
+fun barbar -> mut [number] {
+    return bar
+}
