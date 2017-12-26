@@ -137,7 +137,7 @@ impl Visitor {
                     let right_t = self.type_expression(&*right)?;
                     
                     if let &Some(ref t) = t {
-                        if right_t != *t {
+                        if !right_t.equals(t) {
                             Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("mismatched types, expected: {:?}", t)))
                         } else {
                             self.typetab.set_type(index, 0, t.clone())
@@ -159,7 +159,12 @@ impl Visitor {
                         self.visit_expression(left)?;
                         let t = self.type_expression(left)?;
 
-                        if self.type_expression(right)? != t {
+                        match t {
+                            Type::Mut(_) => (),
+                            _            => return Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("reassignment of immutable: {:?}", name)))
+                        }
+
+                        if !self.type_expression(right)?.equals(&t) {
                             Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("mismatched types, expected: {:?}", t)))
                         } else {
                             Ok(())
@@ -253,7 +258,7 @@ impl Visitor {
                             let body_t = local_visitor.type_expression(&body_expression)?;
 
                             if let &Some(ref t) = t {
-                                if *t != body_t {
+                                if !t.equals(&body_t) {
                                     Err(Response::error(None, format!("[location] mismatching return types of fun: {}", name)))
                                 } else {
                                     local_visitor.typetab.set_type(index, 1, t.clone())?;

@@ -226,3 +226,17 @@ pub enum Type {
     Identifier(String),
     Undefined,
 }
+
+impl Type {
+    pub fn equals(&self, other: &Type) -> bool {
+        let other = if let &Type::Mut(ref r) = other {
+            &r.as_ref().unwrap()
+        } else {
+            other
+        };
+
+        match (self, other) {
+            (ref a, ref b) => a == b,
+        }
+    }
+}
