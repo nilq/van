@@ -44,7 +44,26 @@ impl Visitor {
                     self.visit_expression(expression)?
                 }
                 Ok(())
-            }
+            },
+            
+            Expression::Call(Call {ref callee, ref args}) => {
+                match self.type_expression(callee)? {
+                    Type::Fun(ref params, _) => {
+                        let mut acc = 0;
+                        for param in params {
+                            if param != &*self.type_expression(&*args[acc])?.unmut().unwrap() {
+                                return Err(Response::error(None, format!("[location] mismatching argument: {:?}", param)))
+                            }
+
+                            acc += 1
+                        }
+
+                        Ok(())
+                    },
+                    
+                    ref c => Err(Response::error(None, format!("[location] can't call non-fun: {:?} of {:?}", callee, c)))
+                }
+            },
 
             _ => Ok(())
         }
@@ -87,11 +106,25 @@ impl Visitor {
                     _ => Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("can't index non-array: {:?}", id)))
                 }
             },
+            
+            Expression::Call(Call {ref callee, ..}) => {
+                match self.type_expression(callee)? {
+                    Type::Fun(_, ref retty) => {
+                        if let &Some(ref retty) = retty {
+                            Ok(retty.as_ref().clone())
+                        } else {
+                            Ok(Type::Undefined)
+                        }
+                    },
+                    
+                    ref c => Err(Response::error(None, format!("[location] can't call non-fun: {:?} of {:?}", callee, c)))
+                }
+            },
 
             Expression::Block(ref statements) => {
                 let mut block_t = Type::Undefined;
                 let mut flag    = false;
-                
+
                 let mut acc     = 1;
 
                 for statement in statements {
@@ -170,7 +203,8 @@ impl Visitor {
 
                 if let &Some(ref right) = right {
                     let right_t = self.type_expression(&*right)?;
-                    
+                    self.visit_expression(&*right)?;
+
                     if let &Some(ref t) = t {
                         let t = if !t.unmut().is_some() {
                             Type::Mut(Some(Rc::new(right_t.clone())))
@@ -204,6 +238,8 @@ impl Visitor {
                             Type::Mut(_) => (),
                             _            => return Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("reassignment of immutable: {:?}", name)))
                         }
+
+                        self.visit_expression(&right)?;
 
                         if !self.type_expression(right)?.equals(&t) {
                             Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("mismatched types, expected: {:?}", t)))
@@ -313,23 +349,28 @@ impl Visitor {
                             let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &param_types);
 
                             let mut local_visitor = Visitor::from(local_symtab, local_typetab);
-                            
+
                             let body_expression = Expression::Block(body.clone());
-                            
+
                             local_visitor.visit_expression(&body_expression)?;
 
                             let body_t = local_visitor.type_expression(&body_expression)?;
-
+                            
                             if let &Some(ref t) = t {
+
                                 if !t.equals(&body_t) {
                                     Err(Response::error(None, format!("[location] mismatching return types of fun: {}", name)))
                                 } else {
+                                    let t = Type::Fun(param_types, Some(Rc::new(t.clone())));
+
                                     local_visitor.typetab.set_type(index, 1, t.clone())?;
                                     self.typetab.set_type(index, 0, t.clone())
                                 }
                             } else {
-                                local_visitor.typetab.set_type(index, 1, body_t.clone())?;
-                                self.typetab.set_type(index, 0, body_t.clone())
+                                let t = Type::Fun(param_types, Some(Rc::new(body_t.clone())));
+                                
+                                local_visitor.typetab.set_type(index, 1, t.clone())?;
+                                self.typetab.set_type(index, 0, t.clone())
                             }
                         },
                     },

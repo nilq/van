@@ -3,11 +3,15 @@ extern crate colored;
 mod van;
 use van::*;
 
-fn main() {    
+fn main() {
     let source = r#"
 mut foo: [number; 5] = [1, 2, 3, 4, 5,]
 
-a: number = foo[0]
+fun hmm b: string -> number {
+    foo[0]
+}
+
+a: number = hmm "hello hmm-fun"
 
 fun foofoo -> mut [number; 5] {
     return foo
