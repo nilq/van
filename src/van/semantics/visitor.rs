@@ -64,6 +64,40 @@ impl Visitor {
                     ref c => Err(Response::error(None, format!("[location] can't call non-fun: {:?} of {:?}", callee, c)))
                 }
             },
+            
+            Expression::Fun(ref a) => match **a {
+                Fun {ref t, ref params, ref body, ..} => {
+                    let mut param_names = Vec::new();
+                    let mut param_types = Vec::new();
+
+                    for param in params {
+                        param_names.push(param.name.clone());
+                        param_types.push(param.t.clone())
+                    }
+
+                    let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &param_names.as_slice());
+                    let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &param_types);
+
+                    let mut local_visitor = Visitor::from(local_symtab, local_typetab);
+
+                    let body_expression = Expression::Block(body.clone());
+
+                    local_visitor.visit_expression(&body_expression)?;
+
+                    if let &Some(ref t) = t {
+
+                        let body_t = local_visitor.type_expression(&body_expression)?;
+
+                        if !t.equals(&body_t) {
+                            Err(Response::error(None, format!("[location] mismatching return types of fun expression")))
+                        } else {
+                            Ok(())
+                        }
+                    } else {
+                        Ok(())
+                    }
+                }
+            }
 
             _ => Ok(())
         }
@@ -120,6 +154,42 @@ impl Visitor {
                     ref c => Err(Response::error(None, format!("[location] can't call non-fun: {:?} of {:?}", callee, c)))
                 }
             },
+            
+            Expression::Fun(ref a) => match **a {
+                Fun {ref t, ref params, ref body, ..} => {
+                    let mut param_names = Vec::new();
+                    let mut param_types = Vec::new();
+
+                    for param in params {
+                        param_names.push(param.name.clone());
+                        param_types.push(param.t.clone())
+                    }
+
+                    let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &param_names.as_slice());
+                    let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &param_types);
+
+                    let mut local_visitor = Visitor::from(local_symtab, local_typetab);
+
+                    let body_expression = Expression::Block(body.clone());
+
+                    local_visitor.visit_expression(&body_expression)?;
+
+                    let body_t = local_visitor.type_expression(&body_expression)?;
+                    
+                    if let &Some(ref t) = t {
+                        if !t.equals(&body_t) {
+                            Err(Response::error(None, format!("[location] mismatching return types of fun expression")))
+                        } else {
+                            let t = Type::Fun(param_types, Some(Rc::new(body_t.clone())));
+                            Ok(t.clone())
+                        }
+                    } else {
+                        let t = Type::Fun(param_types, Some(Rc::new(body_t.clone())));
+                        
+                        Ok(t.clone())
+                    }
+                }
+            }
 
             Expression::Block(ref statements) => {
                 let mut block_t = Type::Undefined;
@@ -381,6 +451,11 @@ impl Visitor {
                     }
                 }
             },
+            Statement::Return(ref expr) => if let &Some(ref expr) = expr {
+                self.visit_expression(&expr)
+            } else {
+                Ok(())
+            }
             _ => Ok(())
         }
     }

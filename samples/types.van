@@ -1,10 +1,18 @@
 mut foo: [number; 5] = [1, 2, 3, 4, 5,]
 
+fun hmm b: string -> number {
+    foo[0]
+}
+
+a: number = hmm "hello hmm-fun"
+
 fun foofoo -> mut [number; 5] {
-  return foo
+    return foo
 }
 
 fun barbar -> mut [number; 5] {
-  mut bar := [1, 2, 3, 4, 5,]
-  return bar
+    mut bar := [1, 2, 3, 4, 5,]
+    bar[1] = 50
+
+    return bar
 }

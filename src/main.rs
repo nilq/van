@@ -23,6 +23,10 @@ fun barbar -> mut [number; 5] {
 
     return bar
 }
+
+test := fun a: number -> number {
+    return hmm a
+}
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());
