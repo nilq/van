@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::collections::HashMap;
 
 use super::*;
 
@@ -22,6 +23,13 @@ impl Visitor {
         }
     }
 
+    pub fn alias_type(&self, t: &Type) -> Result<Type, Response> {
+        match *t {
+            Type::Identifier(ref name) => self.typetab.get_alias(name.clone(), 1),
+            ref c                      => Ok(c.clone()),
+        }
+    }
+
     pub fn visit_expression(&mut self, e: &Expression) -> Result<(), Response> {
         match *e {
             Expression::Identifier(ref n, ref position) => {
@@ -30,7 +38,7 @@ impl Visitor {
                     None    => Err(Response::error(Some(ErrorLocation::new(*position, n.len())), format!("unexpected use of: {}", n)))
                 }
             },
-            
+
             Expression::Block(ref statements) => {
                 for statement in statements {
                     self.visit_statement(statement)?
@@ -38,7 +46,7 @@ impl Visitor {
 
                 Ok(())
             },
-            
+
             Expression::Array(ref content) => {
                 for expression in content {
                     self.visit_expression(expression)?
@@ -51,7 +59,8 @@ impl Visitor {
                     Type::Fun(ref params, _) => {
                         let mut acc = 0;
                         for param in params {
-                            if param != &*self.type_expression(&*args[acc])?.unmut().unwrap() {
+                            let arg = &*self.type_expression(&*args[acc])?.unmut().unwrap();
+                            if self.alias_type(param)? != self.alias_type(arg)? {
                                 return Err(Response::error(None, format!("[location] mismatching argument: {:?}", param)))
                             }
 
@@ -64,7 +73,42 @@ impl Visitor {
                     ref c => Err(Response::error(None, format!("[location] can't call non-fun: {:?} of {:?}", callee, c)))
                 }
             },
-            
+
+            Expression::FunctionMatch(ref a) => match **a {
+                FunctionMatch {ref t, ref arms, ..} => {
+                    let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &[]);
+                    let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &Vec::new(), &HashMap::new());
+
+                    let mut local_visitor = Visitor::from(local_symtab, local_typetab);
+
+                    let mut arm_t = Type::Undefined;
+                    let mut flag  = false;
+
+                    for arm in arms {
+                        local_visitor.visit_arm(arm)?;    
+                        if !flag {
+                            arm_t = self.alias_type(&local_visitor.type_arm(arm)?)?;
+                            flag = true
+                        } else {
+                            if arm_t != local_visitor.type_arm(&arm)? {
+                                return Err(Response::error(None, format!("[location] mismatching arms of match function expression")))
+                            }
+                        }
+                    }
+
+                    if let &Some(ref t) = t {
+                        let t = self.alias_type(t)?;
+                        if t != arm_t {
+                            Err(Response::error(None, format!("[location] mismatching return types of function expression")))
+                        } else {
+                            Ok(())
+                        }
+                    } else {
+                        Ok(())
+                    }
+                }
+            },
+
             Expression::Fun(ref a) => match **a {
                 Fun {ref t, ref params, ref body, ..} => {
                     let mut param_names = Vec::new();
@@ -76,7 +120,7 @@ impl Visitor {
                     }
 
                     let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &param_names.as_slice());
-                    let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &param_types);
+                    let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &param_types, &HashMap::new());
 
                     let mut local_visitor = Visitor::from(local_symtab, local_typetab);
 
@@ -85,8 +129,8 @@ impl Visitor {
                     local_visitor.visit_expression(&body_expression)?;
 
                     if let &Some(ref t) = t {
-
-                        let body_t = local_visitor.type_expression(&body_expression)?;
+                        let t      = self.alias_type(&t)?;
+                        let body_t = self.alias_type(&local_visitor.type_expression(&body_expression)?)?;
 
                         if !t.equals(&body_t) {
                             Err(Response::error(None, format!("[location] mismatching return types of fun expression")))
@@ -97,7 +141,7 @@ impl Visitor {
                         Ok(())
                     }
                 }
-            }
+            },
 
             _ => Ok(())
         }
@@ -112,6 +156,13 @@ impl Visitor {
                 Some((i, env_index)) => self.typetab.get_type(i, env_index),
                 None                 => Err(Response::error(Some(ErrorLocation::new(*position, n.len())), format!("undefined type of: {}", n)))
             },
+
+            Expression::Initialization(ref a) => match **a {
+                Initialization {ref id, ..} => {
+                    let a = self.type_expression(id)?;
+                    self.alias_type(&a)
+                }
+            }
 
             Expression::Array(ref content) => {
                 let mut array_t = Type::Undefined;
@@ -142,7 +193,9 @@ impl Visitor {
             },
             
             Expression::Call(Call {ref callee, ..}) => {
-                match self.type_expression(callee)? {
+                let a = self.type_expression(callee)?;
+
+                match self.alias_type(&a)? {
                     Type::Fun(_, ref retty) => {
                         if let &Some(ref retty) = retty {
                             Ok(retty.as_ref().clone())
@@ -166,7 +219,7 @@ impl Visitor {
                     }
 
                     let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &param_names.as_slice());
-                    let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &param_types);
+                    let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &param_types, &HashMap::new());
 
                     let mut local_visitor = Visitor::from(local_symtab, local_typetab);
 
@@ -174,9 +227,11 @@ impl Visitor {
 
                     local_visitor.visit_expression(&body_expression)?;
 
-                    let body_t = local_visitor.type_expression(&body_expression)?;
-                    
+                    let body_t = self.alias_type(&local_visitor.type_expression(&body_expression)?)?;
+
                     if let &Some(ref t) = t {
+                        let t = self.alias_type(t)?;
+
                         if !t.equals(&body_t) {
                             Err(Response::error(None, format!("[location] mismatching return types of fun expression")))
                         } else {
@@ -189,7 +244,41 @@ impl Visitor {
                         Ok(t.clone())
                     }
                 }
-            }
+            },
+            
+            Expression::FunctionMatch(ref a) => match **a {
+                FunctionMatch {ref t, ref arms, ..} => {
+                    let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &[]);
+                    let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &Vec::new(), &HashMap::new());
+
+                    let mut local_visitor = Visitor::from(local_symtab, local_typetab);
+
+                    let mut arm_t = Type::Undefined;
+                    let mut flag  = false;
+
+                    for arm in arms {                                
+                        if !flag {
+                            arm_t = self.alias_type(&local_visitor.type_arm(arm)?)?;
+                            flag = true
+                        } else {
+                            if arm_t != local_visitor.type_arm(&arm)? {
+                                return Err(Response::error(None, format!("[location] mismatching arms of match function expression")))
+                            }
+                        }
+                    }
+
+                    if let &Some(ref t) = t {
+                        let t = self.alias_type(t)?;
+                        if t != arm_t {
+                            Err(Response::error(None, format!("[location] mismatching return types of function expression")))
+                        } else {
+                            Ok(Type::Function(Some(Rc::new(t.clone()))))
+                        }
+                    } else {
+                        Ok(Type::Function(Some(Rc::new(arm_t.clone()))))
+                    }
+                }
+            },
 
             Expression::Block(ref statements) => {
                 let mut block_t = Type::Undefined;
@@ -262,9 +351,32 @@ impl Visitor {
         self.type_expression(&*arm.body)
     }
 
+    pub fn visit_arm(&mut self, arm: &MatchArm) -> Result<(), Response> {
+        self.visit_expression(&*arm.body)
+    }
+
     pub fn visit_statement(&mut self, s: &Statement) -> Result<(), Response> {
         match *s {
             Statement::Expression(ref e) => self.visit_expression(e),
+            Statement::Struct(Struct {ref name, ref body}) => match self.symtab.get_name(&*name) {
+                Some(_) => Err(Response::error(None, format!("[location] struct's name already in use: {}", name))),
+                None    => {
+                    let index = self.symtab.add_name(&name);
+                    if index >= self.typetab.size() {
+                        self.typetab.grow()
+                    }
+
+                    let mut types = HashMap::new();
+
+                    for def in body {
+                        types.insert(def.name.clone(), Rc::new(def.t.clone()));
+                    }
+
+                    self.typetab.set_alias(0, name.clone(), Type::Struct(types.clone()))?;
+                    self.typetab.set_type(index, 0, Type::Identifier(name.clone()))
+                },
+            },
+
             Statement::Definition(Definition {ref t, ref name, ref right, ref position}) => {
                 let index = self.symtab.add_name(&name);
                 if index >= self.typetab.size() {
@@ -272,10 +384,14 @@ impl Visitor {
                 }
 
                 if let &Some(ref right) = right {
-                    let right_t = self.type_expression(&*right)?;
+                    let a = self.type_expression(&*right)?;
+                    let right_t = self.alias_type(&a)?;
+
                     self.visit_expression(&*right)?;
 
                     if let &Some(ref t) = t {
+                        let t = self.alias_type(t)?;
+                        
                         let t = if !t.unmut().is_some() {
                             Type::Mut(Some(Rc::new(right_t.clone())))
                         } else {
@@ -302,7 +418,10 @@ impl Visitor {
                 match **left {
                     Expression::Identifier(ref name, ref position) => {
                         self.visit_expression(left)?;
-                        let t = self.type_expression(left)?;
+
+                        // hmm
+                        let a = self.type_expression(left)?;
+                        let t = self.alias_type(&a)?;
 
                         match t {
                             Type::Mut(_) => (),
@@ -311,7 +430,9 @@ impl Visitor {
 
                         self.visit_expression(&right)?;
 
-                        if !self.type_expression(right)?.equals(&t) {
+                        let right_t = self.type_expression(right)?;
+
+                        if !self.alias_type(&right_t)?.equals(&t) {
                             Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("mismatched types, expected: {:?}", t)))
                         } else {
                             Ok(())
@@ -358,7 +479,7 @@ impl Visitor {
                             }
 
                             let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &[]);
-                            let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &Vec::new());
+                            let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &Vec::new(), &HashMap::new());
 
                             let mut local_visitor = Visitor::from(local_symtab, local_typetab);
 
@@ -367,7 +488,7 @@ impl Visitor {
 
                             for arm in arms {                                
                                 if !flag {
-                                    arm_t = local_visitor.type_arm(arm)?;
+                                    arm_t = self.alias_type(&local_visitor.type_arm(arm)?)?;
                                     flag = true
                                 } else {
                                     if arm_t != local_visitor.type_arm(&arm)? {
@@ -377,13 +498,14 @@ impl Visitor {
                             }
 
                             if let &Some(ref t) = t {
-                                if *t != arm_t {
+                                let t = self.alias_type(t)?;
+                                if t != arm_t {
                                     Err(Response::error(None, format!("[location] mismatching return types of function: {}", name)))
                                 } else {
-                                    local_visitor.typetab.set_type(index, 0, t.clone())
+                                    local_visitor.typetab.set_type(index, 0, Type::Function(Some(Rc::new(t.clone()))))
                                 }
                             } else {
-                                local_visitor.typetab.set_type(index, 0, arm_t.clone())
+                                local_visitor.typetab.set_type(index, 0, Type::Function(Some(Rc::new(arm_t.clone()))))
                             }
                         },
                     },
@@ -404,9 +526,9 @@ impl Visitor {
                             if index >= self.typetab.size() {
                                 self.typetab.grow()
                             }
-                            
+
                             self.typetab.set_type(index, 0, Type::Undefined)?;
-                            
+
                             let mut param_names = Vec::new();
                             let mut param_types = Vec::new();
 
@@ -416,7 +538,7 @@ impl Visitor {
                             }
 
                             let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &param_names.as_slice());
-                            let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &param_types);
+                            let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &param_types, &HashMap::new());
 
                             let mut local_visitor = Visitor::from(local_symtab, local_typetab);
 
@@ -424,13 +546,14 @@ impl Visitor {
 
                             local_visitor.visit_expression(&body_expression)?;
 
-                            let body_t = local_visitor.type_expression(&body_expression)?;
-                            
+                            let body_t = self.alias_type(&local_visitor.type_expression(&body_expression)?)?;
+
                             if let &Some(ref t) = t {
+                                let t = self.alias_type(t)?;
 
                                 if !t.equals(&body_t) {
-                                    Err(Response::error(None, format!("[location] mismatching return types of fun: {}", name)))
-                                } else {
+                                    Err(Response::error(None, format!("[location] mismatching return types of fun: {} of {:?}\n\t:: {:?}", name, t, body_t)))
+                                } else {                                    
                                     let t = Type::Fun(param_types, Some(Rc::new(t.clone())));
 
                                     local_visitor.typetab.set_type(index, 1, t.clone())?;

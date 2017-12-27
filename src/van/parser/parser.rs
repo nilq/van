@@ -62,8 +62,9 @@ impl Parser {
         loop {
             if self.traveler.current().token_type != TokenType::Identifier {
                 match self.traveler.current_content().as_str() {
-                    "mut" |
-                    "fun" |
+                    "mut"      |
+                    "fun"      |
+                    "function" |
                     "["   => (),
                     _     => break
                 }
@@ -86,6 +87,23 @@ impl Parser {
         Ok(Type::Fun(params, retty))
     }
 
+    fn get_function_type(&mut self) -> Result<Type, Response> {
+        self.traveler.next();
+        self.skip_whitespace();
+        
+        let retty = if self.traveler.current_content() == "->" {
+            self.traveler.next();
+            
+            self.skip_whitespace();
+            
+            Some(Rc::new(self.get_type()?))
+        } else {
+            None
+        };
+
+        Ok(Type::Function(retty))
+    }
+
     fn get_type(&mut self) -> Result<Type, Response> {
         match self.traveler.current_content().as_str() {
             "mut" => {
@@ -95,7 +113,8 @@ impl Parser {
                 Ok(Type::Mut(Some(Rc::new(self.get_type()?))))
             },
 
-            "fun" => self.get_fun_type(),
+            "fun"      => self.get_fun_type(),
+            "function" => self.get_function_type(),
 
             "["   => {
                 self.traveler.next();
@@ -148,11 +167,11 @@ impl Parser {
     
     fn match_arm(self: &mut Self) -> Result<Option<MatchArm>, Response> {
         self.skip_whitespace_eol();
-        
+
         if self.traveler.current_content() == "|" {
             self.traveler.next();
             self.skip_whitespace_eol();
-            
+
             let param = Rc::new(self.expression()?);
 
             self.skip_whitespace_eol();
@@ -160,13 +179,13 @@ impl Parser {
             if self.traveler.current_content() == "->" {
                 self.traveler.next();
             }
-            
+
             self.skip_whitespace_eol();
 
             let body = Rc::new(self.expression()?);
-            
+
             self.skip_whitespace_eol();
-            
+
             Ok(Some(MatchArm {
                 param,
                 body,
@@ -281,26 +300,15 @@ impl Parser {
         
         self.skip_whitespace();
         
-        if self.traveler.current().token_type == TokenType::Identifier {
-            let id = self.expression()?;
-            
-            self.skip_whitespace();
-            
-            let values = self.block_of(&Self::assignment_, ("{", "}"))?;
-            
+        let id = self.expression()?;
+        self.skip_whitespace();
+        
+        let values = self.block_of(&Self::assignment_, ("{", "}"))?;
 
-            Ok(Initialization {
-                id: Some(id),
-                values,
-            })    
-        } else {            
-            let values = self.block_of(&Self::assignment_, ("{", "}"))?;
-            
-            Ok(Initialization {
-                id: None,
-                values,
-            })
-        }
+        Ok(Initialization {
+            id,
+            values,
+        })
     }
 
     fn try_index(&mut self, a: Expression, call: bool) -> Result<Expression, Response> {
@@ -1013,11 +1021,12 @@ impl Parser {
 
     fn function_type_def_(self: &mut Self) -> Result<Option<TypeDefinition>, Response> {
         if self.traveler.remaining() > 2 {
+            let position = self.traveler.current().position;
             let d = self.type_definition()?;
             
             match d.t {
-                Type::Fun(..) => (),
-                ref c         => return Err(Response::error(Some(ErrorLocation::new(self.traveler.current().position, 5)), format!("invalid function definition: {:?}", c)))
+                Type::Fun(..) | Type::Function(..) => (),
+                ref c         => return Err(Response::error(Some(ErrorLocation::new(position, 5)), format!("invalid function definition: {:?}", c)))
             }
 
             Ok(Some(d))

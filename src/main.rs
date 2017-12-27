@@ -5,27 +5,16 @@ use van::*;
 
 fn main() {
     let source = r#"
-mut foo: [number; 5] = [1, 2, 3, 4, 5,]
-
-fun hmm b: string -> number {
-    foo[0]
+struct Point {
+    x: number
+    y: number
 }
 
-a: number = hmm "hello hmm-fun"
-
-fun foofoo -> mut [number; 5] {
-    return foo
-}
-
-fun barbar -> mut [number; 5] {
-    mut bar := [1, 2, 3, 4, 5,]
-    bar[1] = 50
-
-    return bar
-}
-
-test := fun a: number -> number {
-    return hmm a
+fun new_point x: number y: number -> Point {
+    new Point {
+        x = x
+        y = y
+    }
 }
     "#;
 

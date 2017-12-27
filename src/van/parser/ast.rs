@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::collections::HashMap;
 
 use super::*;
 
@@ -73,7 +74,7 @@ pub struct TypeDefinition {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Initialization {
-    pub id:     Option<Expression>,
+    pub id:     Expression,
     pub values: Vec<Assignment>,
 }
 
@@ -223,7 +224,9 @@ pub enum Type {
     Mut(Option<Rc<Type>>),
     Array(Rc<Type>, Option<Expression>),
     Fun(Vec<Type>, Option<Rc<Type>>),
+    Function(Option<Rc<Type>>),
     Identifier(String),
+    Struct(HashMap<String, Rc<Type>>),
     Undefined,
 }
 

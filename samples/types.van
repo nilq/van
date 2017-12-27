@@ -16,3 +16,16 @@ fun barbar -> mut [number; 5] {
 
     return bar
 }
+
+fun funny -> fun string -> number {
+    return fun a: string -> number {
+        return hmm a
+    }
+}
+
+fun testing -> (function -> string) {
+    return function {
+        | 1 -> "haah"
+        | 2 -> "haha"
+    }
+}
