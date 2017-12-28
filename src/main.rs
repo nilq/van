@@ -21,7 +21,7 @@ fun foo x: number y: number -> Point {
         x = x
         y = y
     }
-    
+
     a.x = 100
 
     a

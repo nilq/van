@@ -912,17 +912,17 @@ impl Parser {
     fn if_pattern(&mut self) -> Result<If, Response> {
         self.traveler.next();
 
-        self.skip_whitespace_eol();
+        self.skip_whitespace();
 
         let condition = self.expression()?;
 
-        self.skip_whitespace_eol();
+        self.skip_whitespace();
 
         self.traveler.expect_content("{")?;
 
         let body = self.block_of(&Self::statement_, ("{", "}"))?;
 
-        self.skip_whitespace_eol();
+        self.skip_whitespace();
 
         if self.traveler.current_content() == "elif" || self.traveler.current_content() == "else" {
             let mut elses = Vec::new();
@@ -937,8 +937,8 @@ impl Parser {
                     return Err(
                         Response::group(
                             vec![
-                            Response::error(Some(ErrorLocation::new(self.traveler.current().position, current.len())), format!(r#"irrelevant "{}" following previous "else""#, current)),
-                            Response::note(None, r#"all cases are already covered at this point"#.to_owned()),
+                                Response::error(Some(ErrorLocation::new(self.traveler.current().position, current.len())), format!(r#"irrelevant "{}" following previous "else""#, current)),
+                                Response::note(None, "all cases are already covered at this point".to_owned()),
                             ]
                         )
                     )
@@ -960,7 +960,7 @@ impl Parser {
 
                         elses.push((Some(condition), body));
 
-                        self.skip_whitespace_eol();
+                        self.skip_whitespace();
                     },
 
                     "else" => {
@@ -974,14 +974,11 @@ impl Parser {
                         let body = self.block_of(&Self::statement_, ("{", "}"))?;
                         
                         elses.push((None, body));
-                        
-                        self.skip_whitespace_eol();
+
+                        self.skip_whitespace();
                     },
 
-                    _ => {
-                        self.traveler.prev();
-                        break
-                    }
+                    _ => break,
                 }
             }
 
