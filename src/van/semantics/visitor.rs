@@ -53,11 +53,56 @@ impl Visitor {
                 }
                 Ok(())
             },
-            
+
+            Expression::Initialization(ref a) => match **a {
+                Initialization {ref id, ref values} => {
+                    let id_t = self.type_expression(id)?;
+                    let a    = self.alias_type(&id_t)?;
+                    if let Type::Struct(ref hash) = a {
+                        
+                        for def in values {
+                            let mut found = false;
+                            for (name, t) in hash.iter() {
+                                match *def.left {
+                                    Expression::Identifier(ref n, _) =>
+                                        if n == name {
+                                            let right_t = self.type_expression(&def.right)?;
+                                            
+                                            if *t.unmut().unwrap() == right_t {
+                                                found = true
+                                            } else {
+                                                return Err(Response::error(None, format!("[location] {} expected \"{}\", found: {}", name, **t, right_t)))
+                                            }
+                                        } else {
+                                            continue
+                                        },
+
+                                    ref c => return Err(Response::error(None, format!("[location] can't set invalid key: {:?}", c)))
+                                }
+                            }
+
+                            if !found {
+                                return Err(Response::error(None, format!("[location] invalid initialization of: {:?}", def.left)))
+                            }
+                        }
+                        
+                        Ok(())
+                    } else {
+                        Err(Response::error(None, format!("[location] can't initialize: {}", a)))
+                    }
+                }
+            },
+
             Expression::Call(Call {ref callee, ref args}) => {
-                match self.type_expression(callee)? {
+                let callee_t = self.type_expression(callee)?;
+                match self.alias_type(&callee_t)? {
                     Type::Fun(ref params, _) => {
                         let mut acc = 0;
+                        
+                        if params.len() != args.len() {
+                            return Err(Response::error(None, format!("[location] function given {} arguments, expected: {}", params.len(), args.len())))
+                        }
+                        
                         for param in params {
                             let arg = &*self.type_expression(&*args[acc])?.unmut().unwrap();
                             if self.alias_type(param)? != self.alias_type(arg)? {
@@ -69,7 +114,7 @@ impl Visitor {
 
                         Ok(())
                     },
-                    
+
                     ref c => Err(Response::error(None, format!("[location] can't call non-fun: {:?} of {:?}", callee, c)))
                 }
             },
@@ -369,7 +414,7 @@ impl Visitor {
                     let mut types = HashMap::new();
 
                     for def in body {
-                        types.insert(def.name.clone(), Rc::new(def.t.clone()));
+                        types.insert(def.name.clone(), Rc::new(Type::Mut(Some(Rc::new(def.t.clone())))));
                     }
 
                     self.typetab.set_alias(0, name.clone(), Type::Struct(types.clone()))?;
@@ -384,22 +429,30 @@ impl Visitor {
                 }
 
                 if let &Some(ref right) = right {
+                    self.visit_expression(&*right)?;
+
                     let a = self.type_expression(&*right)?;
                     let right_t = self.alias_type(&a)?;
 
                     self.visit_expression(&*right)?;
 
                     if let &Some(ref t) = t {
-                        let t = self.alias_type(t)?;
-                        
-                        let t = if !t.unmut().is_some() {
-                            Type::Mut(Some(Rc::new(right_t.clone())))
+                        let t = if t.unmut().is_some() {
+                            if t.is_mut() {
+                                Type::Mut(Some(Rc::new(self.alias_type(&t.unmut().unwrap())?)))
+                            } else {
+                                self.alias_type(&t)?
+                            }
                         } else {
-                            t.clone()
+                            if t.is_mut() {
+                                Type::Mut(Some(Rc::new(self.alias_type(&right_t.clone())?)))
+                            } else {
+                                self.alias_type(&right_t)?
+                            }
                         };
 
                         if !right_t.equals(&t.unmut().unwrap()) {
-                            Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("mismatched types, expected: {:?}", t)))
+                            Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("mismatched types, expected \"{}\", found: {}", t, right_t)))
                         } else {
                             self.typetab.set_type(index, 0, t.clone())
                         }
@@ -425,7 +478,7 @@ impl Visitor {
 
                         match t {
                             Type::Mut(_) => (),
-                            _            => return Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("reassignment of immutable: {:?}", name)))
+                            _            => return Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("reassignment of immutable: {}", name)))
                         }
 
                         self.visit_expression(&right)?;
@@ -433,31 +486,46 @@ impl Visitor {
                         let right_t = self.type_expression(right)?;
 
                         if !self.alias_type(&right_t)?.equals(&t) {
-                            Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("mismatched types, expected: {:?}", t)))
+                            Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("mismatched types, expected: {}", t)))
                         } else {
                             Ok(())
                         }
                     },
 
                     Expression::Index(Index {ref id, ref index, ref position}) => {
-                        match self.type_expression(id)? {
-                            Type::Mut(ref t) => match **t.as_ref().unwrap() {
+                        let t = self.type_expression(id)?;
+
+                        match self.alias_type(&t)? {
+                            Type::Mut(ref t) => match self.alias_type(&*t.as_ref().unwrap())? {
                                 Type::Array(ref t, _) => {
                                     if let Expression::Identifier(ref name, _) = **index {
-                                        Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("trying to index array with identifier: {:?}", name)))
+                                        Err(Response::error(Some(ErrorLocation::new(*position, name.len())), format!("trying to index array with identifier: {}", name)))
                                     } else {
                                         if !self.type_expression(right)?.equals(&t) {
-                                            Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("mismatched types, expected: {:?}", t)))
+                                            Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("mismatched types, expected: {}", t)))
                                         } else {
                                             Ok(())
                                         }
                                     }
                                 },
 
-                                _ => Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("can't index non-array: {:?}", id))),
+                                Type::Struct(ref defs) => {
+                                    if let Expression::Identifier(ref name, _) = **index {
+                                        let t = self.alias_type(defs.get(name).unwrap())?;
+                                        if !self.type_expression(right)?.equals(&t) {
+                                            Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("mismatched types, expected: {}", t)))
+                                        } else {
+                                            Ok(())
+                                        }
+                                    } else {
+                                        Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("can't access struct with: {}", self.type_expression(&*index)?)))
+                                    }
+                                },
+
+                                c => Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("can't index: {}", c))),
                             },
 
-                            _ => Err(Response::error(Some(ErrorLocation::new(*position, 1)), "assigning immutable index".to_string())),
+                            c => Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("assigning immutable index: {}", c))),
                         }
                     }
                     

@@ -5,17 +5,29 @@ use van::*;
 
 fn main() {
     let source = r#"
+struct number {}
+struct nil    {}
+struct string {}
+
 struct Point {
     x: number
     y: number
 }
 
-fun new_point x: number y: number -> Point {
-    new Point {
+mut outer := 10
+
+fun foo x: number y: number -> Point {
+    mut a: Point = new Point {
         x = x
         y = y
     }
+    
+    a.x = 100
+
+    a
 }
+
+b: Point = foo 100 100
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

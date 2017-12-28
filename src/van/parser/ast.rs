@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use std::collections::HashMap;
+use std::fmt;
 
 use super::*;
 
@@ -259,11 +260,46 @@ impl Type {
         }
     }
 
+    pub fn is_mut(&self) -> bool {
+        if let &Type::Mut(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn unmut(&self) -> Option<Rc<Type>> {
         if let &Type::Mut(ref unmut) = self {
             unmut.clone()
         } else {
             Some(Rc::new(self.clone()))
+        }
+    }
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Type::*;
+
+        match *self {
+            Mut(ref a)          => write!(f, "mut {}", a.as_ref().unwrap_or(&Rc::new(Undefined))),
+            Array(ref t, ref e) => if let &Some(ref e) = e {
+                write!(f, "[{}; {:?}]", t, e)
+            } else {
+                write!(f, "[{}]", t)
+            },
+            Identifier(ref a) => write!(f, "{}", a),
+            Struct(ref hash)  => {
+                write!(f, "{{")?;
+                
+                for def in hash {
+                    write!(f, "{}: {}, ", def.0, def.1)?;
+                }
+
+                write!(f, "}}")
+            }
+
+            _ => Ok(())
         }
     }
 }
