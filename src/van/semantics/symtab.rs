@@ -32,10 +32,6 @@ impl SymTab {
     }
 
     pub fn add_name(&self, name: &str) -> usize {
-        if let Some(index) = self.names.borrow().get(name) {
-            return *index
-        }
-
         let new_index = self.names.borrow().len();
         self.names.borrow_mut().insert(name.to_string(), new_index);
 

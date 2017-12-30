@@ -61,10 +61,10 @@ impl TypeTab {
         }
     }
     
-    pub fn set_alias(&self, env_index: usize, name: String, t: Type) -> Result<(), Response> {
+    pub fn set_alias(&self, env_index: usize, name: &str, t: Type) -> Result<(), Response> {
         if env_index == 0 {
             let mut aliases = self.aliases.borrow_mut();
-            aliases.insert(name, t);
+            aliases.insert(name.to_owned(), t);
 
             Ok(())
         } else {
@@ -72,7 +72,7 @@ impl TypeTab {
                 Some(ref p) => p.set_alias(env_index - 1, name, t),
                 None        => {
                     let mut aliases = self.aliases.borrow_mut();
-                    aliases.insert(name, t);
+                    aliases.insert(name.to_owned(), t);
 
                     Ok(())
                 }
@@ -80,16 +80,16 @@ impl TypeTab {
         }
     }
     
-    pub fn get_alias(&self, name: String, env_index: usize) -> Result<Type, Response> {
+    pub fn get_alias(&self, name: &str, env_index: usize) -> Result<Type, Response> {
         if env_index == 0 {
-            match self.aliases.borrow().get(&name) {
+            match self.aliases.borrow().get(&name.to_owned()) {
                 Some(v) => Ok(v.clone()),
                 None => Err(Response::error(None, format!("invalid type: {}", name))),
             }
         } else {
             match self.parent {
                 Some(ref p) => p.get_alias(name, env_index - 1),
-                None        => match self.aliases.borrow().get(&name) {
+                None        => match self.aliases.borrow().get(&name.to_owned()) {
                     Some(v) => Ok(v.clone()),
                     None => Err(Response::error(None, format!("invalid type: {}", name))),
                 }

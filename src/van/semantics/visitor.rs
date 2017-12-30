@@ -15,7 +15,7 @@ impl Visitor {
             symtab:  SymTab::new_global(),
         }
     }
-    
+
     pub fn from(symtab: SymTab, typetab: TypeTab) -> Visitor {
         Visitor {
             symtab,
@@ -23,10 +23,26 @@ impl Visitor {
         }
     }
 
-    pub fn alias_type(&self, t: &Type) -> Result<Type, Response> {
-        match *t {
-            Type::Identifier(ref name) => self.typetab.get_alias(name.clone(), 1),
-            ref c                      => Ok(c.clone()),
+    fn alias_type(&self, t: &Type) -> Result<Type, Response> {
+        match *t.unmut().unwrap() {
+            Type::Identifier(ref name) => match name.as_str() {
+                "number"  => Ok(Type::Number),
+                "nil"     => Ok(Type::Number),
+                "boolean" => Ok(Type::Bool),
+                "str"     => Ok(Type::Str),
+
+                _ => Ok(if t.is_mut() {
+                            Type::Mut(Some(Rc::new(self.typetab.get_alias(name, 1)?)))
+                        } else {
+                            self.typetab.get_alias(name, 1)?
+                        }),
+            },
+
+            ref c => Ok(if t.is_mut() {
+                            Type::Mut(Some(Rc::new(c.clone())))
+                        } else {
+                            c.clone()
+                        }),
         }
     }
 
@@ -52,6 +68,113 @@ impl Visitor {
                     self.visit_expression(expression)?
                 }
                 Ok(())
+            },
+            
+            Expression::Unless(ref a) => match **a {
+                Unless {ref base} => self.visit_expression(&Expression::If(Rc::new(base.clone()))),
+            },
+
+            Expression::If(ref a) => match **a {
+                If {ref condition, ref body, ref elses} => {
+                    self.visit_expression(condition)?;
+
+                    if self.type_expression(condition)? != Type::Bool {
+                        return Err(Response::error(None, format!("[location] invalid non-bool if condition")))
+                    }
+                    
+                    let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &[]);
+                    let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &Vec::new(), &HashMap::new());
+
+                    let mut local_visitor = Visitor::from(local_symtab, local_typetab);
+                    
+                    local_visitor.visit_expression(&Expression::Block(body.clone()))?;
+
+                    if let &Some(ref elses) = elses {
+                        for arm in elses { 
+                            if let Some(ref condition) = arm.0 {
+                                local_visitor.visit_expression(&condition)?
+                            }
+                        }
+                    }
+
+                    Ok(())
+                }
+            }
+
+            Expression::BinaryOp(ref op) => {
+                let left_t  = (*self.type_expression(&op.left)?.unmut().unwrap()).clone();
+                let right_t = (*self.type_expression(&op.right)?.unmut().unwrap()).clone();
+
+                use self::Type::*;
+                use self::Operand::*;
+
+                match (left_t, &op.op, right_t) {
+                    (a, &Add, b) => match (a, b) {
+                        (Number, Number) => Ok(()),
+                        (a, b) => Err(Response::error(None, format!("[location] can't add {} and {}", a, b))),
+                    },
+
+                    (a, &Sub, b) => match (a, b) {
+                        (Number, Number) => Ok(()),
+                        (a, b) => Err(Response::error(None, format!("[location] can't subtract {} and {}", a, b))),
+                    },
+
+                    (a, &Mul, b) => match (a, b) {
+                        (Number, Number) => Ok(()),
+                        (a, b) => Err(Response::error(None, format!("[location] can't multiply {} and {}", a, b))),
+                    },
+
+                    (a, &Div, b) => match (a, b) {
+                        (Number, Number) => Ok(()),
+                        (a, b) => Err(Response::error(None, format!("[location] can't divide {} and {}", a, b))),
+                    },
+
+                    (a, &Pow, b) => match (a, b) {
+                        (Number, Number) => Ok(()),
+                        (a, b) => Err(Response::error(None, format!("[location] can't put {} to the power of {}", a, b))),
+                    },
+
+                    (a, &Equal, b)   |
+                    (a, &NEqual, b)  |
+                    (a, &Lt, b)      |
+                    (a, &Gt, b)      |
+                    (a, &LtEqual, b) |
+                    (a, &GtEqual, b) => match (a, b) {
+                        (Nil, a) |
+                        (a, Nil) => Err(Response::error(None, format!("[location] can't compare {} to nothing", a))),
+                        _ => Ok(()),
+                    },
+
+                    (a, &Concat, b) => match (a, b) {
+                        (Str, Str) |
+                        (Number, Str) |
+                        (Str, Number) => Ok(()),
+                        (a, b) => Err(Response::error(None, format!("[location] can't concat {} and {}", a, b))),
+                    },
+
+                    (a, &PipeRight, b) => match (self.alias_type(&a)?, self.alias_type(&b)?) {
+                        (a, b @ Fun(_, _))   |
+                        (a, b @ Function(_)) => match b {
+                            Type::Fun(ref params, _) => {
+                                if params.len() != 1 {
+                                    return Err(Response::error(None, format!("[location] function given {} arguments, expected: 1", params.len())))
+                                }
+
+                                if self.alias_type(params.get(0).unwrap())? != a {
+                                    return Err(Response::error(None, format!("[location] mismatching argument: {:?}", params.get(0).unwrap())))
+                                }
+
+                                Ok(())
+                            },
+
+                            ref c => Err(Response::error(None, format!("[location] can't call non-fun: {:?} of {:?}", b, c)))
+                        },
+                        
+                        _ => panic!(),
+                    },
+
+                    (a, o, b) => Err(Response::error(None, format!("[location] unimplemented operation: {} {:?} {}", a, o, b))),
+                }
             },
 
             Expression::Initialization(ref a) => match **a {
@@ -194,9 +317,9 @@ impl Visitor {
 
     pub fn type_expression(&mut self, e: &Expression) -> Result<Type, Response> {
         match *e {
-            Expression::Number(_) => Ok(Type::Identifier("number".to_string())),
-            Expression::Str(_)    => Ok(Type::Identifier("string".to_string())),
-            Expression::Bool(_)   => Ok(Type::Identifier("boolean".to_string())),
+            Expression::Number(_) => Ok(Type::Number),
+            Expression::Str(_)    => Ok(Type::Str),
+            Expression::Bool(_)   => Ok(Type::Bool),
             Expression::Identifier(ref n, ref position) => match self.symtab.get_name(&*n) {
                 Some((i, env_index)) => self.typetab.get_type(i, env_index),
                 None                 => Err(Response::error(Some(ErrorLocation::new(*position, n.len())), format!("undefined type of: {}", n)))
@@ -234,6 +357,102 @@ impl Visitor {
                     },
                     
                     _ => Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("can't index non-array: {:?}", id)))
+                }
+            },
+
+            Expression::Unless(ref a) => match **a {
+                Unless {ref base} => self.type_expression(&Expression::If(Rc::new(base.clone()))),
+            },
+
+            Expression::If(ref a) => match **a {
+                If {ref body, ref elses, ..} => {
+                    let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &[]);
+                    let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &Vec::new(), &HashMap::new());
+
+                    let mut local_visitor = Visitor::from(local_symtab, local_typetab);
+                    let mut arm_t         = local_visitor.type_expression(&Expression::Block(body.clone()))?;
+                    
+                    if let &Some(ref elses) = elses {
+                        for arm in elses { 
+                            if arm_t != local_visitor.type_expression(&Expression::Block(arm.1.clone()))? {
+                                return Err(Response::error(None, format!("[location] mismatching branches of if expression")))
+                            }
+                        }
+                    }
+
+                    Ok(arm_t)
+                }
+            }
+            
+            Expression::BinaryOp(ref op) => {
+                let left_t  = (*self.type_expression(&op.left)?.unmut().unwrap()).clone();
+                let right_t = (*self.type_expression(&op.right)?.unmut().unwrap()).clone();
+
+                use self::Type::*;
+                use self::Operand::*;
+
+                match (left_t, &op.op, right_t) {
+                    (a, &Add, b) => match (a, b) {
+                        (Number, Number) => Ok(Number),
+                        (a, b) => Err(Response::error(None, format!("[location] can't add {} and {}", a, b))),
+                    },
+
+                    (a, &Sub, b) => match (a, b) {
+                        (Number, Number) => Ok(Number),
+                        (a, b) => Err(Response::error(None, format!("[location] can't subtract {} and {}", a, b))),
+                    },
+
+                    (a, &Mul, b) => match (a, b) {
+                        (Number, Number) => Ok(Number),
+                        (a, b) => Err(Response::error(None, format!("[location] can't multiply {} and {}", a, b))),
+                    },
+
+                    (a, &Div, b) => match (a, b) {
+                        (Number, Number) => Ok(Number),
+                        (a, b) => Err(Response::error(None, format!("[location] can't divide {} and {}", a, b))),
+                    },
+
+                    (a, &Pow, b) => match (a, b) {
+                        (Number, Number) => Ok(Number),
+                        (a, b) => Err(Response::error(None, format!("[location] can't put {} to the power of {}", a, b))),
+                    },
+
+                    (a, &Equal, b)   |
+                    (a, &NEqual, b)  |
+                    (a, &Lt, b)      |
+                    (a, &Gt, b)      |
+                    (a, &LtEqual, b) |
+                    (a, &GtEqual, b) => match (a, b) {
+                        (Nil, a) |
+                        (a, Nil) => Err(Response::error(None, format!("[location] can't compare {} to nothing", a))),
+                        _ => Ok(Bool),
+                    },
+
+                    (a, &Concat, b) => match (a, b) {
+                        (Str, Str) |
+                        (Number, Str) |
+                        (Str, Number) => Ok(Str),
+                        (a, b) => Err(Response::error(None, format!("[location] can't concat {} and {}", a, b))),
+                    },
+
+                    (a, &PipeRight, b) => match (self.alias_type(&a)?, self.alias_type(&b)?) {
+                        (a, b @ Fun(_, _))   |
+                        (a, b @ Function(_)) => match b {
+                            Type::Fun(_, ref retty) => {
+                                if let &Some(ref retty) = retty {
+                                    Ok(retty.as_ref().clone())
+                                } else {
+                                    Ok(Type::Undefined)
+                                }
+                            },
+
+                            ref c => Err(Response::error(None, format!("[location] can't call non-fun: {:?} of {:?}", b, c)))
+                        },
+                        
+                        _ => panic!(),
+                    },
+
+                    (a, o, b) => Err(Response::error(None, format!("[location] unimplemented operation: {} {:?} {}", a, o, b))),
                 }
             },
             
@@ -301,7 +520,7 @@ impl Visitor {
                     let mut arm_t = Type::Undefined;
                     let mut flag  = false;
 
-                    for arm in arms {                                
+                    for arm in arms { 
                         if !flag {
                             arm_t = self.alias_type(&local_visitor.type_arm(arm)?)?;
                             flag = true
@@ -347,7 +566,7 @@ impl Visitor {
                                     block_t = if let &Some(ref expr) = expr {
                                         self.type_expression(expr)?
                                     } else {
-                                        Type::Identifier("nil".to_string())
+                                        Type::Nil
                                     };
 
                                     flag = true
@@ -357,7 +576,7 @@ impl Visitor {
                             },
                             _ => {
                                 if !flag {
-                                    block_t = Type::Identifier("nil".to_string());
+                                    block_t = Type::Nil;
                                     flag = true
                                 }
                             }
@@ -369,7 +588,7 @@ impl Visitor {
                                     block_t = if let &Some(ref expr) = expr {
                                         self.type_expression(expr)?
                                     } else {
-                                        Type::Identifier("nil".to_string())
+                                        Type::Nil
                                     };
 
                                     flag = true
@@ -417,7 +636,7 @@ impl Visitor {
                         types.insert(def.name.clone(), Rc::new(Type::Mut(Some(Rc::new(def.t.clone())))));
                     }
 
-                    self.typetab.set_alias(0, name.clone(), Type::Struct(types.clone()))?;
+                    self.typetab.set_alias(0, &name, Type::Struct(types.clone()))?;
                     self.typetab.set_type(index, 0, Type::Identifier(name.clone()))
                 },
             },
@@ -433,8 +652,6 @@ impl Visitor {
 
                     let a = self.type_expression(&*right)?;
                     let right_t = self.alias_type(&a)?;
-
-                    self.visit_expression(&*right)?;
 
                     if let &Some(ref t) = t {
                         let t = if t.unmut().is_some() {
@@ -512,8 +729,10 @@ impl Visitor {
                                 Type::Struct(ref defs) => {
                                     if let Expression::Identifier(ref name, _) = **index {
                                         let t = self.alias_type(defs.get(name).unwrap())?;
-                                        if !self.type_expression(right)?.equals(&t) {
-                                            Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("mismatched types, expected: {}", t)))
+
+                                        let a = self.type_expression(right)?;
+                                        if !self.alias_type(&a)?.equals(&t) {
+                                            Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("mismatched types, expected '{}', found: {}", t, a)))
                                         } else {
                                             Ok(())
                                         }
@@ -535,6 +754,10 @@ impl Visitor {
                     }
                 }
             },
+            
+            Statement::Unless(ref unless) => self.visit_expression(&Expression::If(Rc::new(unless.base.clone()))),
+            Statement::If(ref base)       => self.visit_expression(&Expression::If(Rc::new(base.clone()))),
+            
             Statement::FunctionMatch(FunctionMatch {ref t, ref name, ref arms}) => {
                 match *name.as_ref().unwrap() {
                     Expression::Identifier(ref name, ref position) => match self.symtab.get_name(&*name) {

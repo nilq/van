@@ -5,10 +5,6 @@ use van::*;
 
 fn main() {
     let source = r#"
-struct number {}
-struct nil    {}
-struct string {}
-
 struct Point {
     x: number
     y: number
@@ -16,18 +12,34 @@ struct Point {
 
 mut outer := 10
 
-fun foo x: number y: number -> Point {
-    mut a: Point = new Point {
-        x = x
-        y = y
-    }
-
-    a.x = 100
-
-    a
+if "hey" ++ ", world" == "hey, world" {
+    print "Hey"
 }
 
-b: Point = foo 100 100
+b := 10 + 10
+
+baba: Point = {
+    fun foo x: number -> Point {
+        mut a: Point = new Point {
+            x = x
+            y = x
+        }
+
+        a.y = 100
+
+        a
+    }
+
+    100 |> foo
+}
+
+c: number = {
+    return unless false {
+        10
+    } else {
+        20
+    }
+}
     "#;
 
     let lexer      = make_lexer(source.clone().chars().collect());

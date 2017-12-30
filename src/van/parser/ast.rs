@@ -193,26 +193,24 @@ pub enum Operand {
     Lt, Gt, LtEqual, GtEqual,
     Concat,
     PipeLeft, PipeRight,
-    XOR,
 }
 
 impl Operand {
     pub fn from_str(v: &str) -> Option<(Operand, u8)> {
         match v {
-            "^^"  => Some((Operand::Pow, 0)),
+            "^"   => Some((Operand::Pow, 0)),
             "*"   => Some((Operand::Mul, 1)),
             "/"   => Some((Operand::Div, 1)),
             "%"   => Some((Operand::Mod, 1)),
             "+"   => Some((Operand::Add, 2)),
             "-"   => Some((Operand::Sub, 2)),
+            "++"  => Some((Operand::Concat, 2)),
             "=="  => Some((Operand::Equal, 3)),
             "~="  => Some((Operand::NEqual, 3)),
             "<"   => Some((Operand::Lt, 4)),
             ">"   => Some((Operand::Gt, 4)),
             "<="  => Some((Operand::LtEqual, 4)),
             ">="  => Some((Operand::GtEqual, 4)),
-            "^"   => Some((Operand::XOR, 4)),
-            "++"  => Some((Operand::Concat, 5)),
             "<|"  => Some((Operand::PipeLeft, 5)),
             "|>"  => Some((Operand::PipeRight, 5)),
             _     => None,
@@ -222,6 +220,11 @@ impl Operand {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
+    Number,
+    Str,
+    Bool,
+    Nil,
+
     Mut(Option<Rc<Type>>),
     Array(Rc<Type>, Option<Expression>),
     Fun(Vec<Type>, Option<Rc<Type>>),
@@ -233,30 +236,28 @@ pub enum Type {
 
 impl Type {
     pub fn equals(&self, other: &Type) -> bool {
-        if let &Type::Mut(ref other) = other {
-            if let &Type::Mut(_) = self {
-                ()
-            } else {
-                return self.equals(&**other.as_ref().unwrap())
-            }
-        }
+        match (other, self) {
+            (&Type::Mut(ref a), &Type::Mut(ref b)) => a.clone().unwrap().equals(&**b.as_ref().unwrap()),
+            (&Type::Mut(ref a), b) => a.clone().unwrap().equals(b),
+            (a, &Type::Mut(ref b)) => a.equals(&**b.as_ref().unwrap()),
 
-        match *other {
-            Type::Array(ref other_t, ref other_len) => match *self {
-                Type::Array(ref t, ref len) => {
-                    if !other_len.is_some() {
-                        self == &Type::Array(other_t.clone(), len.clone())
-                    } else if !len.is_some() {
-                        Type::Array(t.clone(), other_len.clone()) == Type::Array(other_t.clone(), other_len.clone())
-                    } else {
-                        self == other
-                    }
+            _ => match *other {
+                Type::Array(ref other_t, ref other_len) => match *self {
+                    Type::Array(ref t, ref len) => {
+                        if !other_len.is_some() {
+                            self == &Type::Array(other_t.clone(), len.clone())
+                        } else if !len.is_some() {
+                            Type::Array(t.clone(), other_len.clone()) == Type::Array(other_t.clone(), other_len.clone())
+                        } else {
+                            self == other
+                        }
+                    },
+
+                    _ => self == other
                 },
-
+                
                 _ => self == other
-            },
-            
-            _ => self == other
+            }
         }
     }
 
@@ -282,6 +283,11 @@ impl fmt::Display for Type {
         use self::Type::*;
 
         match *self {
+            Number => write!(f, "number"),
+            Str    => write!(f, "string"),
+            Bool   => write!(f, "boolean"),
+            Nil    => write!(f, "nil"),
+
             Mut(ref a)          => write!(f, "mut {}", a.as_ref().unwrap_or(&Rc::new(Undefined))),
             Array(ref t, ref e) => if let &Some(ref e) = e {
                 write!(f, "[{}; {:?}]", t, e)
@@ -298,6 +304,8 @@ impl fmt::Display for Type {
 
                 write!(f, "}}")
             }
+            
+            Undefined => write!(f, "undefined"),
 
             _ => Ok(())
         }
