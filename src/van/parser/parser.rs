@@ -65,8 +65,12 @@ impl Parser {
                     "mut"      |
                     "fun"      |
                     "function" |
-                    "["   => (),
-                    _     => break
+                    "nil"      |
+                    "number"   |
+                    "string"   |
+                    "boolean"  |
+                    "["        => (),
+                    _ => break
                 }
             }
             
@@ -115,6 +119,26 @@ impl Parser {
 
             "fun"      => self.get_fun_type(),
             "function" => self.get_function_type(),
+
+            "nil" => {
+                self.traveler.next();
+                Ok(Type::Nil)
+            },
+
+            "number" =>{
+                self.traveler.next();
+                Ok(Type::Number)
+            },
+
+            "string" => {
+                self.traveler.next();
+                Ok(Type::Str)
+            },
+
+            "boolean" => {
+                self.traveler.next();
+                Ok(Type::Bool)
+            },
 
             "["   => {
                 self.traveler.next();
@@ -477,18 +501,6 @@ impl Parser {
                 "unless" => Ok(Expression::Unless(Rc::new(Unless { base: self.if_pattern()? } ))),
                 "new"    => Ok(Expression::Initialization(Rc::new(self.initialization()?))),
                 
-                "extern" => {
-                    self.traveler.next();
-                    self.skip_whitespace();
-
-                    let position = self.traveler.current().position;
-                    let a        = Expression::Identifier(self.traveler.expect(TokenType::Identifier)?, position);
-                    self.traveler.next();
-                    self.skip_whitespace();
-
-                    Ok(Expression::Extern(Rc::new(self.try_index(a, true)?)))
-                }
-                
                 "struct" => {
                     self.traveler.next();
                     self.skip_whitespace();
@@ -795,22 +807,23 @@ impl Parser {
 
     fn structure(&mut self) -> Result<Struct, Response> {
         self.traveler.next();
-        self.skip_whitespace_eol();
+        self.skip_whitespace();
         
         let name = self.traveler.current_content().clone();
         self.traveler.next();
-        self.skip_whitespace_eol();
+        self.skip_whitespace();
+        
+        self.traveler.expect_content("{")?;
+        self.traveler.next();
+        
+        self.traveler.next();
 
-        if self.traveler.current_content() == "{" {
-            let body = self.block_of(&Self::type_definition_, ("{", "}"))?;
-            
-            Ok(Struct {
-                name,
-                body,
-            })
-        } else {
-            panic!()
-        }
+        let body = self.block_of(&Self::type_definition_, ("{", "}"))?;
+        
+        Ok(Struct {
+            name,
+            body,
+        })
     }
 
     fn function_(self: &mut Self) -> Result<Option<Function>, Response> {

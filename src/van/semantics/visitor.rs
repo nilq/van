@@ -24,25 +24,28 @@ impl Visitor {
     }
 
     fn alias_type(&self, t: &Type) -> Result<Type, Response> {
-        match *t.unmut().unwrap() {
-            Type::Identifier(ref name) => match name.as_str() {
-                "number"  => Ok(Type::Number),
-                "nil"     => Ok(Type::Number),
-                "boolean" => Ok(Type::Bool),
-                "str"     => Ok(Type::Str),
+        let mut acc_t = t.clone();
+        let mut acc   = 0;
+        loop {
+            match acc_t {
+                Type::Mut(_) => {
+                    acc += 1;
+                    acc_t = (*acc_t.unmut().unwrap()).clone()
+                },
 
-                _ => Ok(if t.is_mut() {
-                            Type::Mut(Some(Rc::new(self.typetab.get_alias(name, 1)?)))
-                        } else {
-                            self.typetab.get_alias(name, 1)?
-                        }),
-            },
+                Type::Identifier(ref name) => {
+                    let t         = self.typetab.get_alias(name, 1)?;
+                    let mut new_t = t;
+                    
+                    for _ in 0 .. acc {
+                        new_t = Type::Mut(Some(Rc::new(new_t.clone())))
+                    }
 
-            ref c => Ok(if t.is_mut() {
-                            Type::Mut(Some(Rc::new(c.clone())))
-                        } else {
-                            c.clone()
-                        }),
+                    return Ok(new_t)
+                }
+
+                ref t => return Ok(t.clone()),
+            }
         }
     }
 
@@ -62,7 +65,7 @@ impl Visitor {
 
                 Ok(())
             },
-
+            
             Expression::Array(ref content) => {
                 for expression in content {
                     self.visit_expression(expression)?
@@ -191,7 +194,7 @@ impl Visitor {
                                         if n == name {
                                             let right_t = self.type_expression(&def.right)?;
                                             
-                                            if *t.unmut().unwrap() == right_t {
+                                            if self.alias_type(t)?.equals(&self.alias_type(&right_t)?) {
                                                 found = true
                                             } else {
                                                 return Err(Response::error(None, format!("[location] {} expected \"{}\", found: {}", name, **t, right_t)))
@@ -249,7 +252,7 @@ impl Visitor {
 
                     let mut local_visitor = Visitor::from(local_symtab, local_typetab);
 
-                    let mut arm_t = Type::Undefined;
+                    let mut arm_t = Type::Nil;
                     let mut flag  = false;
 
                     for arm in arms {
@@ -333,7 +336,7 @@ impl Visitor {
             }
 
             Expression::Array(ref content) => {
-                let mut array_t = Type::Undefined;
+                let mut array_t = Type::Nil;
                 let mut flag    = false;
                 
                 for expression in content {
@@ -442,7 +445,7 @@ impl Visitor {
                                 if let &Some(ref retty) = retty {
                                     Ok(retty.as_ref().clone())
                                 } else {
-                                    Ok(Type::Undefined)
+                                    Ok(Type::Nil)
                                 }
                             },
 
@@ -464,7 +467,7 @@ impl Visitor {
                         if let &Some(ref retty) = retty {
                             Ok(retty.as_ref().clone())
                         } else {
-                            Ok(Type::Undefined)
+                            Ok(Type::Nil)
                         }
                     },
                     
@@ -492,18 +495,18 @@ impl Visitor {
                     local_visitor.visit_expression(&body_expression)?;
 
                     let body_t = self.alias_type(&local_visitor.type_expression(&body_expression)?)?;
-
+                    
                     if let &Some(ref t) = t {
                         let t = self.alias_type(t)?;
 
                         if !t.equals(&body_t) {
                             Err(Response::error(None, format!("[location] mismatching return types of fun expression")))
                         } else {
-                            let t = Type::Fun(param_types, Some(Rc::new(body_t.clone())));
+                            let t = Type::Fun(param_types, Some(Rc::new(t.clone())));
                             Ok(t.clone())
                         }
                     } else {
-                        let t = Type::Fun(param_types, Some(Rc::new(body_t.clone())));
+                        let t = Type::Fun(param_types, Some(Rc::new(self.alias_type(&body_t)?)));
                         
                         Ok(t.clone())
                     }
@@ -517,7 +520,7 @@ impl Visitor {
 
                     let mut local_visitor = Visitor::from(local_symtab, local_typetab);
 
-                    let mut arm_t = Type::Undefined;
+                    let mut arm_t = Type::Nil;
                     let mut flag  = false;
 
                     for arm in arms { 
@@ -545,7 +548,7 @@ impl Visitor {
             },
 
             Expression::Block(ref statements) => {
-                let mut block_t = Type::Undefined;
+                let mut block_t = Type::Nil;
                 let mut flag    = false;
 
                 let mut acc     = 1;
@@ -603,11 +606,11 @@ impl Visitor {
                     
                     acc += 1
                 }
-                
+
                 Ok(block_t)
             },
 
-            _ => Ok(Type::Undefined),
+            _ => Ok(Type::Nil),
         }
     }
 
@@ -621,7 +624,8 @@ impl Visitor {
 
     pub fn visit_statement(&mut self, s: &Statement) -> Result<(), Response> {
         match *s {
-            Statement::Expression(ref e) => self.visit_expression(e),
+            Statement::Extern(ref statement) => self.visit_statement(statement),
+            Statement::Expression(ref e)     => self.visit_expression(e),
             Statement::Struct(Struct {ref name, ref body}) => match self.symtab.get_name(&*name) {
                 Some(_) => Err(Response::error(None, format!("[location] struct's name already in use: {}", name))),
                 None    => {
@@ -774,7 +778,7 @@ impl Visitor {
 
                             let mut local_visitor = Visitor::from(local_symtab, local_typetab);
 
-                            let mut arm_t = Type::Undefined;
+                            let mut arm_t = Type::Nil;
                             let mut flag  = false;
 
                             for arm in arms {                                
@@ -818,7 +822,7 @@ impl Visitor {
                                 self.typetab.grow()
                             }
 
-                            self.typetab.set_type(index, 0, Type::Undefined)?;
+                            self.typetab.set_type(index, 0, Type::Nil)?;
 
                             let mut param_names = Vec::new();
                             let mut param_types = Vec::new();

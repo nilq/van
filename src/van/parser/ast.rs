@@ -13,7 +13,7 @@ pub enum Expression {
     Char(char),
     Identifier(String, TokenPosition),
     BinaryOp(BinaryOp),
-    MatchPattern(MatchPattern),
+    MatchPattern(MatchPattern),  // todo
     Call(Call),
     Index(Index),
     Array(Vec<Expression>),
@@ -23,7 +23,6 @@ pub enum Expression {
     Initialization(Rc<Initialization>),
     FunctionMatch(Rc<FunctionMatch>),
     Fun(Rc<Fun>),
-    Extern(Rc<Expression>),
     EOF,
 }
 
@@ -91,11 +90,11 @@ pub enum Statement {
     Unless(Unless),
     MatchPattern(MatchPattern),
     Interface(Interface),
-    Implementation(Implementation),
+    Implementation(Implementation), // todo
     Return(Option<Expression>),
-    Import(Import),
-    Extern(Rc<Statement>),
-    While(While),
+    Import(Import), // todo
+    Extern(Rc<Statement>), // todo
+    While(While), // todo
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -238,25 +237,27 @@ impl Type {
     pub fn equals(&self, other: &Type) -> bool {
         match (other, self) {
             (&Type::Mut(ref a), &Type::Mut(ref b)) => a.clone().unwrap().equals(&**b.as_ref().unwrap()),
-            (&Type::Mut(ref a), b) => a.clone().unwrap().equals(b),
-            (a, &Type::Mut(ref b)) => a.equals(&**b.as_ref().unwrap()),
+            (&Type::Mut(ref a), b)                 => a.clone().unwrap().equals(b),
+            (a, &Type::Mut(ref b))                 => a.equals(&**b.as_ref().unwrap()),
 
-            _ => match *other {
-                Type::Array(ref other_t, ref other_len) => match *self {
-                    Type::Array(ref t, ref len) => {
-                        if !other_len.is_some() {
-                            self == &Type::Array(other_t.clone(), len.clone())
-                        } else if !len.is_some() {
-                            Type::Array(t.clone(), other_len.clone()) == Type::Array(other_t.clone(), other_len.clone())
-                        } else {
-                            self == other
-                        }
+            _ => {
+                match *other {
+                    Type::Array(ref other_t, ref other_len) => match *self {
+                        Type::Array(ref t, ref len) => {
+                            if !other_len.is_some() {
+                                self == &Type::Array(other_t.clone(), len.clone())
+                            } else if !len.is_some() {
+                                Type::Array(t.clone(), other_len.clone()) == Type::Array(other_t.clone(), other_len.clone())
+                            } else {
+                                self == other
+                            }
+                        },
+
+                        _ => self == other
                     },
-
+                    
                     _ => self == other
-                },
-                
-                _ => self == other
+                }
             }
         }
     }
@@ -287,6 +288,20 @@ impl fmt::Display for Type {
             Str    => write!(f, "string"),
             Bool   => write!(f, "boolean"),
             Nil    => write!(f, "nil"),
+
+            Fun(ref params, ref retty) => {
+                write!(f, "fun")?;
+
+                for param in params {
+                    write!(f, " {}", param)?;
+                }
+
+                if let &Some(ref retty) = retty {
+                    write!(f, " -> {}", retty)
+                } else {
+                    write!(f, " -> nil")
+                }
+            }
 
             Mut(ref a)          => write!(f, "mut {}", a.as_ref().unwrap_or(&Rc::new(Undefined))),
             Array(ref t, ref e) => if let &Some(ref e) = e {

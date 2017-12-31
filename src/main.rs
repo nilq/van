@@ -5,39 +5,17 @@ use van::*;
 
 fn main() {
     let source = r#"
-struct Point {
-    x: number
-    y: number
+extern print: fun string -> nil
+
+extern struct Love {
+    load:   fun -> nil
+    update: fun number -> nil
+    draw:   fun -> nil
 }
 
-mut outer := 10
-
-if "hey" ++ ", world" == "hey, world" {
-    print "Hey"
-}
-
-b := 10 + 10
-
-baba: Point = {
-    fun foo x: number -> Point {
-        mut a: Point = new Point {
-            x = x
-            y = x
-        }
-
-        a.y = 100
-
-        a
-    }
-
-    100 |> foo
-}
-
-c: number = {
-    return unless false {
-        10
-    } else {
-        20
+love: Love = new Love {
+    load = fun -> nil {
+        print "we're loaded"
     }
 }
     "#;

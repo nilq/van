@@ -4,24 +4,13 @@ an attempt to make a tiny high-control language with a fair amount of sugar
 
 ## TODO
 
-- in-the-wild blocks
+- compiler
 
-- tuples
+- optimizer
 
-- group assignments
-
-- records?
-
-- semantics
-
-- transpiler and compiler
+- proper, advanced type inference
 
 ## syntax
-
-### types
-
-currently the language has no type-checker, and the types are still very undefined,
-the types will propably be a mix of *ordinary* Java-ish types and Rust's beautiful types.
 
 ### variables
 
