@@ -187,8 +187,7 @@ impl Visitor {
                     },
 
                     (a, &PipeRight, b) => match (self.alias_type(&a)?, self.alias_type(&b)?) {
-                        (a, b @ Fun(_, _))   |
-                        (a, b @ Function(_)) => match b {
+                        (a, b @ Fun(_, _)) => match b {
                             Type::Fun(ref params, _) => {
                                 if params.len() != 1 {
                                     return Err(Response::error(None, format!("[location] function given {} arguments, expected: 1", params.len())))
@@ -512,8 +511,7 @@ impl Visitor {
                     },
 
                     (a, &PipeRight, b) => match (self.alias_type(&a)?, self.alias_type(&b)?) {
-                        (a, b @ Fun(_, _))   |
-                        (a, b @ Function(_)) => match b {
+                        (a, b @ Fun(_, _)) => match b {
                             Type::Fun(_, ref retty) => {
                                 if let &Some(ref retty) = retty {
                                     Ok(retty.as_ref().clone())
@@ -593,16 +591,23 @@ impl Visitor {
 
                     let mut local_visitor = Visitor::from(local_symtab, local_typetab);
 
-                    let mut arm_t = Type::Nil;
-                    let mut flag  = false;
+                    let mut arm_t   = Type::Nil;
+                    let mut param_t = Type::Nil;
 
-                    for arm in arms { 
+                    let mut flag    = false;
+
+                    for arm in arms {
                         if !flag {
-                            arm_t = self.alias_type(&local_visitor.type_arm(arm)?)?;
+                            arm_t   = self.alias_type(&local_visitor.type_arm(arm)?)?;
+                            param_t = self.alias_type(&local_visitor.type_expression(&*arm.param)?)?;
                             flag = true
                         } else {
                             if arm_t != local_visitor.type_arm(&arm)? {
                                 return Err(Response::error(None, format!("[location] mismatching arms of match function expression")))
+                            }
+                            
+                            if param_t != local_visitor.type_expression(&*arm.param)? {
+                                return Err(Response::error(None, format!("[location] mismatching arm parameters of match function expression")))
                             }
                         }
                     }
@@ -612,10 +617,10 @@ impl Visitor {
                         if t != arm_t {
                             Err(Response::error(None, format!("[location] mismatching return types of function expression")))
                         } else {
-                            Ok(Type::Function(Some(Rc::new(t.clone()))))
+                            Ok(Type::Fun(vec!(param_t), Some(Rc::new(t.clone()))))
                         }
                     } else {
-                        Ok(Type::Function(Some(Rc::new(arm_t.clone()))))
+                        Ok(Type::Fun(vec!(param_t), Some(Rc::new(arm_t.clone()))))
                     }
                 }
             },
@@ -872,16 +877,22 @@ impl Visitor {
 
                             let mut local_visitor = Visitor::from(local_symtab, local_typetab);
 
-                            let mut arm_t = Type::Nil;
-                            let mut flag  = false;
+                            let mut arm_t   = Type::Nil;
+                            let mut param_t = Type::Nil;
+                            let mut flag    = false;
 
-                            for arm in arms {                                
+                            for arm in arms {
                                 if !flag {
-                                    arm_t = self.alias_type(&local_visitor.type_arm(arm)?)?;
+                                    arm_t   = self.alias_type(&local_visitor.type_arm(arm)?)?;
+                                    param_t = self.alias_type(&local_visitor.type_expression(&*arm.param)?)?;
                                     flag = true
                                 } else {
                                     if arm_t != local_visitor.type_arm(&arm)? {
-                                        return Err(Response::error(None, format!("[error location] mismatching arms of match function: {}", name)))
+                                        return Err(Response::error(None, format!("[location] mismatching arms of match function expression")))
+                                    }
+                                    
+                                    if param_t != local_visitor.type_expression(&*arm.param)? {
+                                        return Err(Response::error(None, format!("[location] mismatching arm parameters of match function expression")))
                                     }
                                 }
                             }
@@ -891,10 +902,10 @@ impl Visitor {
                                 if t != arm_t {
                                     Err(Response::error(None, format!("[location] mismatching return types of function: {}", name)))
                                 } else {
-                                    local_visitor.typetab.set_type(index, 0, Type::Function(Some(Rc::new(t.clone()))))
+                                    local_visitor.typetab.set_type(index, 0, Type::Fun(vec!(param_t), Some(Rc::new(t.clone()))))
                                 }
                             } else {
-                                local_visitor.typetab.set_type(index, 0, Type::Function(Some(Rc::new(arm_t.clone()))))
+                                local_visitor.typetab.set_type(index, 0, Type::Fun(vec!(param_t), Some(Rc::new(arm_t.clone()))))
                             }
                         },
                     },

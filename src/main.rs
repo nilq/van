@@ -5,63 +5,6 @@ use van::*;
 
 fn main() {
     let source = r#"
-extern print: fun string -> nil
-
-extern struct Love {
-    load:   fun -> nil
-    update: fun number -> nil
-    draw:   fun -> nil
-}
-
-love_: Love = new Love {
-    load = fun -> nil {
-        print "we're loaded"
-    }
-
-    update = fun dt: number {
-        print ("updating: " ++ dt)
-    }
-
-    draw = fun {
-        print "draw draw"
-    }
-}
-
-struct Point {
-    x: number
-    y: number
-}
-
-mut outer := 10
-
-if "hey" ++ ", world" == "hey, world" {
-    print "Hey"
-}
-
-b := 10 + 10
-
-baba: Point = {
-    fun foo x: number -> Point {
-        mut a: Point = new Point {
-            x = x
-            y = x
-        }
-
-        a.y = 100
-
-        a
-    }
-
-    100 |> foo
-}
-
-c: number = {
-    return unless false {
-        10
-    } else {
-        20
-    }
-}
 
     "#;
 

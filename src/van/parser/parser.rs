@@ -64,7 +64,6 @@ impl Parser {
                 match self.traveler.current_content().as_str() {
                     "mut"      |
                     "fun"      |
-                    "function" |
                     "nil"      |
                     "number"   |
                     "string"   |
@@ -91,23 +90,6 @@ impl Parser {
         Ok(Type::Fun(params, retty))
     }
 
-    fn get_function_type(&mut self) -> Result<Type, Response> {
-        self.traveler.next();
-        self.skip_whitespace();
-        
-        let retty = if self.traveler.current_content() == "->" {
-            self.traveler.next();
-            
-            self.skip_whitespace();
-            
-            Some(Rc::new(self.get_type()?))
-        } else {
-            None
-        };
-
-        Ok(Type::Function(retty))
-    }
-
     fn get_type(&mut self) -> Result<Type, Response> {
         match self.traveler.current_content().as_str() {
             "mut" => {
@@ -117,8 +99,7 @@ impl Parser {
                 Ok(Type::Mut(Some(Rc::new(self.get_type()?))))
             },
 
-            "fun"      => self.get_fun_type(),
-            "function" => self.get_function_type(),
+            "fun" => self.get_fun_type(),
 
             "nil" => {
                 self.traveler.next();
@@ -1035,7 +1016,7 @@ impl Parser {
             let d = self.type_definition()?;
             
             match d.t {
-                Type::Fun(..) | Type::Function(..) => (),
+                Type::Fun(..) => (),
                 ref c         => return Err(Response::error(Some(ErrorLocation::new(position, 5)), format!("invalid function definition: {:?}", c)))
             }
 

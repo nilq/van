@@ -227,7 +227,6 @@ pub enum Type {
     Mut(Option<Rc<Type>>),
     Array(Rc<Type>, Option<Expression>),
     Fun(Vec<Type>, Option<Rc<Type>>),
-    Function(Option<Rc<Type>>),
     Identifier(String),
     Struct(HashMap<String, Rc<Type>>),
     Undefined,
