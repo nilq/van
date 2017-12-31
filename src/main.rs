@@ -5,17 +5,27 @@ use van::*;
 
 fn main() {
     let source = r#"
-extern print: fun string -> nil
+extern print: mut fun string -> nil
 
-extern struct Love {
+extern struct graphics {
+    rectangle: fun string number number number number -> nil
+}
+
+extern struct love {
     load:   fun -> nil
     update: fun number -> nil
     draw:   fun -> nil
+
+    graphics: graphics
 }
 
-love: Love = new Love {
-    load = fun -> nil {
-        print "we're loaded"
+love_ := new love {
+    draw = fun -> nil {
+        love.graphics.rectangle "fill" 100 100 100 100
+
+        while "hey: " ++ (1 + 1 == 2) {
+            print "hey"
+        }
     }
 }
     "#;

@@ -89,12 +89,12 @@ pub enum Statement {
     If(If),
     Unless(Unless),
     MatchPattern(MatchPattern),
-    Interface(Interface),
+    Interface(Interface), // todo
     Implementation(Implementation), // todo
     Return(Option<Expression>),
     Import(Import), // todo
-    Extern(Rc<Statement>), // todo
-    While(While), // todo
+    Extern(Rc<Statement>),
+    While(While),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -272,7 +272,7 @@ impl Type {
 
     pub fn unmut(&self) -> Option<Rc<Type>> {
         if let &Type::Mut(ref unmut) = self {
-            unmut.clone()
+            (*unmut.clone().unwrap()).unmut()
         } else {
             Some(Rc::new(self.clone()))
         }

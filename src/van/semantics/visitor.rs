@@ -149,8 +149,9 @@ impl Visitor {
                     },
 
                     (a, &Concat, b) => match (a, b) {
-                        (Str, Str) |
+                        (Str, Str)    |
                         (Number, Str) |
+                        (Str, Bool)   |
                         (Str, Number) => Ok(()),
                         (a, b) => Err(Response::error(None, format!("[location] can't concat {} and {}", a, b))),
                     },
@@ -353,13 +354,27 @@ impl Visitor {
                 Ok(Type::Array(Rc::new(array_t), Some(Expression::Number(content.len() as f64))))
             },
 
-            Expression::Index(Index {ref id, ref position, ..}) => {
-                match *self.type_expression(id)?.unmut().unwrap() {
+            Expression::Index(Index {ref id, ref position, ref index}) => {
+                let a = self.type_expression(id)?;
+
+                match *self.alias_type(&a)?.unmut().unwrap() {
                     Type::Array(ref t, _) => {
                         Ok((**t).clone())
                     },
-                    
-                    _ => Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("can't index non-array: {:?}", id)))
+
+                    Type::Struct(ref defs) => {
+                        if let Expression::Identifier(ref name, _) = **index {
+                            if let Some(a) = defs.get(name) {
+                                self.alias_type(a)
+                            } else {
+                                Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("invalid key: {}", name)))
+                            }
+                        } else {
+                            Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("can't access struct with: {}", self.type_expression(&*index)?)))
+                        }
+                    }
+
+                    _ => Err(Response::error(Some(ErrorLocation::new(*position, 1)), format!("can't index non-indexable: {:?}", id)))
                 }
             },
 
@@ -434,6 +449,7 @@ impl Visitor {
                     (a, &Concat, b) => match (a, b) {
                         (Str, Str) |
                         (Number, Str) |
+                        (Str, Bool)   |
                         (Str, Number) => Ok(Str),
                         (a, b) => Err(Response::error(None, format!("[location] can't concat {} and {}", a, b))),
                     },
@@ -761,6 +777,16 @@ impl Visitor {
             
             Statement::Unless(ref unless) => self.visit_expression(&Expression::If(Rc::new(unless.base.clone()))),
             Statement::If(ref base)       => self.visit_expression(&Expression::If(Rc::new(base.clone()))),
+            
+            Statement::While(ref base) => {
+                self.visit_expression(&base.condition)?;
+
+                if self.type_expression(&base.condition)? != Type::Bool {
+                    return Err(Response::error(None, format!("[location] invalid non-bool while condition")))
+                }
+                
+                self.visit_expression(&Expression::Block(base.body.clone()))
+            } 
             
             Statement::FunctionMatch(FunctionMatch {ref t, ref name, ref arms}) => {
                 match *name.as_ref().unwrap() {
