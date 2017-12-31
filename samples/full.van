@@ -1,18 +1,18 @@
-extern print: fun string -> nil
+extern print: fun string
 
 extern struct Love {
-    load:   mut fun -> nil
-    update: mut fun number -> nil
-    draw:   mut fun -> nil
+    load:   fun -> nil
+    update: fun number -> nil
+    draw:   fun -> nil
 }
 
-love: Love = new Love {
+love_: Love = new Love {
     load = fun -> nil {
         print "we're loaded"
     }
 
     update = fun dt: number {
-        print "update: " ++ dt
+        print ("updating: " ++ dt)
     }
 
     draw = fun {

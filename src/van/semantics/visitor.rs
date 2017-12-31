@@ -33,18 +33,20 @@ impl Visitor {
                     acc_t = (*acc_t.unmut().unwrap()).clone()
                 },
 
-                Type::Identifier(ref name) => {
-                    let t         = self.typetab.get_alias(name, 1)?;
+                ref t => {
+                    let t = match *t {
+                        Type::Identifier(ref name) => self.typetab.get_alias(name, 1)?,
+                        _                             => t.clone(),
+                    };
+
                     let mut new_t = t;
                     
                     for _ in 0 .. acc {
                         new_t = Type::Mut(Some(Rc::new(new_t.clone())))
                     }
-
+                    
                     return Ok(new_t)
-                }
-
-                ref t => return Ok(t.clone()),
+                },
             }
         }
     }
@@ -76,6 +78,34 @@ impl Visitor {
             Expression::Unless(ref a) => match **a {
                 Unless {ref base} => self.visit_expression(&Expression::If(Rc::new(base.clone()))),
             },
+            
+            Expression::MatchPattern(MatchPattern {ref matching, ref arms}) => {
+                self.visit_expression(&matching)?;
+
+                let mut arm_t = Type::Nil;
+                let mut flag  = false;
+
+                for arm in arms {
+                    self.visit_arm(arm)?;
+                    
+                    if !self.type_expression(&*arm.param)?.equals(&self.type_expression(matching)?) {
+                        return Err(Response::error(None, format!("[location] mismatching arm parameter of match expression")))
+                    }
+
+                    if !flag {
+                        let a = self.type_arm(arm)?;
+
+                        arm_t = self.alias_type(&a)?;
+                        flag = true
+                    } else {
+                        if arm_t != self.type_arm(&arm)? {
+                            return Err(Response::error(None, format!("[location] mismatching arms of match expression")))
+                        }
+                    }
+                }
+
+                Ok(())
+            }
 
             Expression::If(ref a) => match **a {
                 If {ref condition, ref body, ref elses} => {
@@ -186,7 +216,6 @@ impl Visitor {
                     let id_t = self.type_expression(id)?;
                     let a    = self.alias_type(&id_t)?;
                     if let Type::Struct(ref hash) = a {
-                        
                         for def in values {
                             let mut found = false;
                             for (name, t) in hash.iter() {
@@ -400,6 +429,34 @@ impl Visitor {
 
                     Ok(arm_t)
                 }
+            }
+            
+            Expression::MatchPattern(MatchPattern {ref matching, ref arms}) => {
+                self.visit_expression(&matching)?;
+
+                let mut arm_t = Type::Nil;
+                let mut flag  = false;
+
+                for arm in arms {
+                    self.visit_arm(arm)?;
+                    
+                    if !self.type_expression(&*arm.param)?.equals(&self.type_expression(matching)?) {
+                        return Err(Response::error(None, format!("[location] mismatching arm parameter of match expression")))
+                    }
+
+                    if !flag {
+                        let a = self.type_arm(arm)?;
+
+                        arm_t = self.alias_type(&a)?;
+                        flag = true
+                    } else {
+                        if arm_t != self.type_arm(&arm)? {
+                            return Err(Response::error(None, format!("[location] mismatching arms of match expression")))
+                        }
+                    }
+                }
+
+                Ok(arm_t)
             }
             
             Expression::BinaryOp(ref op) => {
@@ -631,7 +688,18 @@ impl Visitor {
     }
 
     pub fn type_arm(&mut self, arm: &MatchArm) -> Result<Type, Response> {
-        self.type_expression(&*arm.body)
+        let mut param: Vec<String> = Vec::new();
+
+        if let Expression::Identifier(ref name, _) = *arm.param {
+            param.push(name.to_owned())
+        }
+
+        let local_symtab  = SymTab::new(Rc::new(self.symtab.clone()), &param.as_slice());
+        let local_typetab = TypeTab::new(Rc::new(self.typetab.clone()), &Vec::new(), &HashMap::new());
+
+        let mut local_visitor = Visitor::from(local_symtab, local_typetab);
+
+        local_visitor.type_expression(&*arm.body)
     }
 
     pub fn visit_arm(&mut self, arm: &MatchArm) -> Result<(), Response> {
@@ -674,7 +742,7 @@ impl Visitor {
                     let right_t = self.alias_type(&a)?;
 
                     if let &Some(ref t) = t {
-                        let t = if t.unmut().is_some() {
+                        let t = if !t.is_empty_mut() {
                             if t.is_mut() {
                                 Type::Mut(Some(Rc::new(self.alias_type(&t.unmut().unwrap())?)))
                             } else {
@@ -731,7 +799,7 @@ impl Visitor {
 
                     Expression::Index(Index {ref id, ref index, ref position}) => {
                         let t = self.type_expression(id)?;
-
+                        
                         match self.alias_type(&t)? {
                             Type::Mut(ref t) => match self.alias_type(&*t.as_ref().unwrap())? {
                                 Type::Array(ref t, _) => {

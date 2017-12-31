@@ -13,7 +13,7 @@ pub enum Expression {
     Char(char),
     Identifier(String, TokenPosition),
     BinaryOp(BinaryOp),
-    MatchPattern(MatchPattern),  // todo
+    MatchPattern(MatchPattern),
     Call(Call),
     Index(Index),
     Array(Vec<Expression>),
@@ -275,6 +275,23 @@ impl Type {
             (*unmut.clone().unwrap()).unmut()
         } else {
             Some(Rc::new(self.clone()))
+        }
+    }
+
+    pub fn is_empty_mut(&self) -> bool {
+        let mut acc_t = self.clone();
+        loop {
+            match acc_t {
+                Type::Mut(a) => {
+                    if let Some(a) = a {
+                        acc_t = (*a).clone()
+                    } else {
+                        return true
+                    }
+                },
+                
+                _ => return false,
+            }
         }
     }
 }
